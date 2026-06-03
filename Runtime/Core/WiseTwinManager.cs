@@ -415,6 +415,43 @@ namespace WiseTwin
             }
         }
 
+        /// <summary>
+        /// Fully resets the training: destroys all WiseTwin singletons and reloads the active
+        /// scene from scratch. This is the exact same behavior as the red restart button in the
+        /// HUD, but WITHOUT the confirmation dialog — call it only when you already have user
+        /// intent (or none is required).
+        ///
+        /// All in-memory state is discarded: analytics session, scenario progression, UI,
+        /// player position, control mode. Everything is re-instantiated fresh by the scene reload.
+        /// </summary>
+        public void RestartTraining()
+        {
+            DebugLog("↻ Restart training requested - reloading scene");
+
+            ControlModeSettings.Reset();
+
+            // Détruire les singletons standalone (pas sous WiseTwinSystem)
+            var transitionPanel = FindFirstObjectByType<ScenarioTransitionPanel>();
+            if (transitionPanel != null) Destroy(transitionPanel.gameObject);
+
+            var tutorialUI = FindFirstObjectByType<TutorialUI>();
+            if (tutorialUI != null) Destroy(tutorialUI.gameObject);
+
+            // Détruire le HUD s'il est un objet root séparé
+            var hud = FindFirstObjectByType<TrainingHUD>();
+            if (hud != null) Destroy(hud.transform.root.gameObject);
+
+            int buildIndex = SceneManager.GetActiveScene().buildIndex;
+
+            // Détruire le WiseTwinSystem root en dernier (contient les singletons principaux,
+            // dont ce manager) puis recharger la scène.
+            Destroy(transform.root.gameObject);
+
+            SceneManager.LoadScene(buildIndex);
+
+            WiseTwinAPI.RaiseTrainingRestarted();
+        }
+
         #endregion
 
         #region Development Helpers

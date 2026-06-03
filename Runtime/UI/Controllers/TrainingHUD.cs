@@ -607,26 +607,19 @@ namespace WiseTwin
         {
             if (debugMode) Debug.Log("[TrainingHUD] Restart confirmed - reloading scene");
 
-            ControlModeSettings.Reset();
-
-            // Détruire le WiseTwinSystem root (contient les singletons principaux)
+            // La logique de reset complet vit dans WiseTwinManager (réutilisée par WiseTwinAPI).
             var wiseTwinManager = WiseTwinManager.Instance;
             if (wiseTwinManager != null)
             {
-                Destroy(wiseTwinManager.transform.root.gameObject);
+                wiseTwinManager.RestartTraining();
             }
-
-            // Détruire les singletons standalone (pas sous WiseTwinSystem)
-            var transitionPanel = FindFirstObjectByType<ScenarioTransitionPanel>();
-            if (transitionPanel != null) Destroy(transitionPanel.gameObject);
-
-            var tutorialUI = FindFirstObjectByType<TutorialUI>();
-            if (tutorialUI != null) Destroy(tutorialUI.gameObject);
-
-            // Détruire ce HUD s'il est un objet root séparé
-            Destroy(transform.root.gameObject);
-
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            else
+            {
+                // Fallback si le manager n'existe pas : recharger la scène directement.
+                ControlModeSettings.Reset();
+                Destroy(transform.root.gameObject);
+                SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            }
         }
 
         #endregion

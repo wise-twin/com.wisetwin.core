@@ -343,6 +343,7 @@ For **neutral choices** (no evaluation), omit `isCorrect` or set all choices to 
 ```csharp
 WiseTwinManager.Instance.MetadataLoader          // Access metadata
 WiseTwinManager.Instance.CompleteTraining(name)   // Complete training + notify WebGL
+WiseTwinManager.Instance.RestartTraining()        // Full reset + reload scene (no confirmation)
 WiseTwinManager.Instance.ReloadMetadata()         // Reload from source
 WiseTwinManager.Instance.SavePlayerSpawnPosition()
 WiseTwinManager.Instance.ResetPlayerPosition()

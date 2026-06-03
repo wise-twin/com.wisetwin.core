@@ -78,6 +78,16 @@ Completes the entire training, fires `OnTrainingCompleted`, and notifies the par
 WiseTwinAPI.CompleteTraining("Safety Training Module 1");
 ```
 
+#### `RestartTraining() → void`
+
+Fully resets the training and reloads the current scene from scratch — the **same behavior as the red restart button in the HUD, but WITHOUT the confirmation dialog**. All in-memory state (analytics session, scenario progression, UI, player position, control mode) is discarded and re-instantiated fresh by the scene reload. Fires `OnTrainingRestarted` just before the reload.
+
+```csharp
+WiseTwinAPI.RestartTraining();
+```
+
+> **Note:** because the scene reloads, do not assume the WiseTwin singletons still exist in code running after this call within the same frame.
+
 ---
 
 ### State queries
@@ -152,6 +162,7 @@ All events are static and can be subscribed to from anywhere. Remember to unsubs
 | `OnScoreChanged`                       | `(float newScore)`            | The cumulative score changes (0-100)                |
 | `OnScenarioStarted`                    | `(int index, ScenarioData scenario)` | A scenario begins                            |
 | `OnTrainingCompleted`                  | `()`                          | The training ends (`CompleteTraining` was called)   |
+| `OnTrainingRestarted`                  | `()`                          | The training is reset (`RestartTraining` was called), just before the scene reloads |
 | `OnCustomEventLogged`                  | `(string eventId, bool success, float weight, string description)` | `LogCustomEvent` was called |
 
 ```csharp

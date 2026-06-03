@@ -2,6 +2,12 @@
 
 All notable changes to the WiseTwin Core Package will be documented in this file.
 
+## [1.6.0] - 2026-06-03
+
+### Added
+- **`WiseTwinAPI.RestartTraining()`** — Public API method that fully resets the training and reloads the current scene, identical to the red restart button in the HUD but **without the confirmation dialog**. Discards all in-memory state (analytics, progression, UI, player position, control mode). New `OnTrainingRestarted` event fires just before the scene reloads.
+- **`WiseTwinManager.RestartTraining()`** — Underlying reset logic, now the single source of truth. `TrainingHUD.ConfirmRestart()` (the red button's confirm action) delegates to it instead of duplicating the destroy-singletons-and-reload sequence.
+
 ## [1.5.0] - 2026-05-06
 
 ### Added

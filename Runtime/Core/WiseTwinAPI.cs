@@ -38,6 +38,9 @@ namespace WiseTwin
         /// <summary>Fires when the entire training is completed (CompleteTraining was called).</summary>
         public static event Action OnTrainingCompleted;
 
+        /// <summary>Fires when the training is fully reset (RestartTraining was called), just before the scene reloads.</summary>
+        public static event Action OnTrainingRestarted;
+
         /// <summary>Fires when LogCustomEvent is called. Args: eventId, success, weight, description.</summary>
         public static event Action<string, bool, float, string> OnCustomEventLogged;
 
@@ -47,6 +50,7 @@ namespace WiseTwin
         internal static void RaiseScoreChanged(float newScore) => OnScoreChanged?.Invoke(newScore);
         internal static void RaiseScenarioStarted(int index, ScenarioData scenario) => OnScenarioStarted?.Invoke(index, scenario);
         internal static void RaiseTrainingCompleted() => OnTrainingCompleted?.Invoke();
+        internal static void RaiseTrainingRestarted() => OnTrainingRestarted?.Invoke();
         internal static void RaiseCustomEventLogged(string eventId, bool success, float weight, string description) => OnCustomEventLogged?.Invoke(eventId, success, weight, description);
 
         // ─────────────────────────────────────────────────────────────
@@ -114,6 +118,36 @@ namespace WiseTwin
 
             manager.CompleteTraining(trainingName);
             // Note: WiseTwinManager.CompleteTraining already calls RaiseTrainingCompleted
+        }
+
+        /// <summary>
+        /// Fully resets the training and reloads the current scene from scratch — the same
+        /// behavior as the red restart button in the HUD, but WITHOUT the confirmation dialog.
+        /// All in-memory state (analytics, progression, UI, player position) is discarded.
+        ///
+        /// Fires OnTrainingRestarted just before the scene reloads. Because the scene reloads,
+        /// any code running after this call in the same frame should not assume the WiseTwin
+        /// singletons still exist.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// // Restart the whole training from a custom "give up" button, no confirmation popup
+        /// void OnGiveUpClicked() {
+        ///     WiseTwinAPI.RestartTraining();
+        /// }
+        /// </code>
+        /// </example>
+        public static void RestartTraining()
+        {
+            var manager = WiseTwinManager.Instance;
+            if (manager == null)
+            {
+                Debug.LogWarning("[WiseTwinAPI] RestartTraining called but WiseTwinManager is not initialised");
+                return;
+            }
+
+            manager.RestartTraining();
+            // Note: WiseTwinManager.RestartTraining already calls RaiseTrainingRestarted
         }
 
         // ─────────────────────────────────────────────────────────────
