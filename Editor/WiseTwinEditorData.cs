@@ -21,6 +21,10 @@ namespace WiseTwin.Editor
         public string containerId = "";
         public string buildType = "wisetrainer";
 
+        // Player control modes offered at training start
+        public bool allowKeyboardControl = true;
+        public bool allowMouseControl = true;
+
         // ============= METADATA CONFIG =============
         public string projectTitle = "Training Test";
         public string projectDescription = "Training description";

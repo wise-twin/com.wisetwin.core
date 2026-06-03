@@ -175,6 +175,10 @@ namespace WiseTwin
         /// </summary>
         void ShowTutorialOrStart()
         {
+            var manager = WiseTwinManager.Instance;
+            bool allowKeyboard = manager == null || manager.AllowKeyboardControl;
+            bool allowMouse = manager == null || manager.AllowMouseControl;
+
             var tutorial = TutorialUI.Instance;
             if (tutorial == null)
             {
@@ -193,6 +197,10 @@ namespace WiseTwin
                 }
             }
 
+            // The tutorial always shows the welcome/onboarding. The control-mode CHOICE
+            // is only offered when both modes are enabled; with a single mode it is shown
+            // pre-selected, and with neither the control section is hidden entirely.
+            tutorial.Configure(allowKeyboard, allowMouse);
             tutorial.OnTutorialCompleted -= OnTutorialCompleted;
             tutorial.OnTutorialCompleted += OnTutorialCompleted;
             tutorial.Show();

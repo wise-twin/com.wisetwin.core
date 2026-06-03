@@ -72,6 +72,10 @@ public class WiseTwinEditor : EditorWindow
                     data.containerId = settingsDict["containerId"].ToString();
                 if (settingsDict.ContainsKey("buildType"))
                     data.buildType = settingsDict["buildType"].ToString();
+                if (settingsDict.ContainsKey("allowKeyboardControl"))
+                    data.allowKeyboardControl = (bool)settingsDict["allowKeyboardControl"];
+                if (settingsDict.ContainsKey("allowMouseControl"))
+                    data.allowMouseControl = (bool)settingsDict["allowMouseControl"];
 
             }
             catch (System.Exception e)
@@ -90,7 +94,9 @@ public class WiseTwinEditor : EditorWindow
                 ["useLocalMode"] = data.useLocalMode,
                 ["azureApiUrl"] = data.azureApiUrl,
                 ["containerId"] = data.containerId,
-                ["buildType"] = data.buildType
+                ["buildType"] = data.buildType,
+                ["allowKeyboardControl"] = data.allowKeyboardControl,
+                ["allowMouseControl"] = data.allowMouseControl
             };
 
             string jsonContent = JsonConvert.SerializeObject(settingsDict, Formatting.Indented);
@@ -1441,6 +1447,12 @@ public class WiseTwinEditor : EditorWindow
                 data.useLocalMode = !prodModeProp.boolValue;
                 Debug.Log($"[WiseTwinEditor] Synchronisé avec WiseTwinManager: Mode {(data.useLocalMode ? "Local" : "Production")}");
             }
+
+            // Synchroniser les modes de contrôle joueur (sérialisés en flags "disable" inversés)
+            SerializedProperty kbProp = managerSO.FindProperty("disableKeyboardControl");
+            SerializedProperty mouseProp = managerSO.FindProperty("disableMouseControl");
+            if (kbProp != null) data.allowKeyboardControl = !kbProp.boolValue;
+            if (mouseProp != null) data.allowMouseControl = !mouseProp.boolValue;
         }
     }
 

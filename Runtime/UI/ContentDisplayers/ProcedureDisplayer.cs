@@ -293,7 +293,7 @@ namespace WiseTwin.UI
             modalContainer.style.height = Length.Percent(100);
             modalContainer.style.backgroundColor = UIStyles.BackdropLight;
             modalContainer.style.alignItems = Align.FlexEnd;
-            modalContainer.style.justifyContent = Justify.Center;
+            modalContainer.style.justifyContent = Justify.FlexStart;
             // Let 3D clicks pass through the full-screen backdrop so host interaction scripts
             // (and the package's own ProcedureStepClickHandler) can validate steps by clicking
             // the world. The instructionPanel keeps the default Position pickingMode, so its
@@ -327,8 +327,9 @@ namespace WiseTwin.UI
             }
             else
             {
-                // Default layout: right-docked via parent's flex alignment.
+                // Default layout: top-right via parent's flex alignment.
                 instructionPanel.style.marginRight = UIStyles.SpaceLG;
+                instructionPanel.style.marginTop = UIStyles.SpaceLG;
             }
 
             // Drag-handle row at the top of the panel (6 grip dots). Hints that the

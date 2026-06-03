@@ -33,6 +33,12 @@ namespace WiseTwin
         private ControlMode selectedMode = ControlMode.KeyboardMouse;
         public bool IsDisplaying { get; private set; } = false;
 
+        // Which control modes are offered (set via Configure before Show).
+        // Both → the player chooses; exactly one → shown pre-selected, no choice;
+        // neither → no control section, WiseTwin does not apply any controller.
+        private bool allowKeyboard = true;
+        private bool allowMouse = true;
+
         private VisualElement keyboardCard;
         private VisualElement mouseCard;
         private Label explanationLabel;
@@ -87,10 +93,22 @@ namespace WiseTwin
             }
         }
 
+        /// <summary>
+        /// Configure which control modes are offered. Call before <see cref="Show"/>.
+        /// Both → choice cards; exactly one → that mode shown pre-selected (no choice);
+        /// neither → no control section (host project manages the player controller).
+        /// </summary>
+        public void Configure(bool keyboard, bool mouse)
+        {
+            allowKeyboard = keyboard;
+            allowMouse = mouse;
+        }
+
         public void Show(string languageCode = "")
         {
-            selectedMode = ControlMode.KeyboardMouse;
-            ControlModeSettings.SetMode(ControlMode.KeyboardMouse);
+            // Default to the only available mode when a single one is offered
+            selectedMode = (allowMouse && !allowKeyboard) ? ControlMode.MouseOnly : ControlMode.KeyboardMouse;
+            ControlModeSettings.SetMode(selectedMode);
 
             if (uiDocument != null && !uiDocument.enabled)
             {
@@ -229,55 +247,79 @@ namespace WiseTwin
             UIStyles.SetPadding(panel, UIStyles.Space3XL);
             panel.style.alignItems = Align.Center;
 
-            var header = UIStyles.CreateTitle("Choose your controls", UIStyles.FontXL);
+            bool bothModes = allowKeyboard && allowMouse;
+            bool anyMode = allowKeyboard || allowMouse;
+
+            string headerText = bothModes ? "Choose your controls" : (anyMode ? "Controls" : "Ready");
+            var header = UIStyles.CreateTitle(headerText, UIStyles.FontXL);
             header.style.marginBottom = UIStyles.SpaceLG;
             header.style.unityTextAlign = TextAnchor.MiddleCenter;
             panel.Add(header);
 
-            // Control mode cards row
-            var cardsRow = new VisualElement();
-            cardsRow.style.flexDirection = FlexDirection.Row;
-            cardsRow.style.justifyContent = Justify.Center;
-            cardsRow.style.marginBottom = UIStyles.SpaceLG;
-
-            keyboardCard = BuildKeyboardCard(true);
-            keyboardCard.RegisterCallback<ClickEvent>(evt =>
+            // Control section — only shown when WiseTwin manages at least one mode.
+            // Clickable choice cards only when BOTH modes are offered; otherwise the
+            // single available mode is shown pre-selected (informational, no choice).
+            if (anyMode)
             {
-                evt.StopPropagation();
-                SelectControlMode(ControlMode.KeyboardMouse);
-            });
-            cardsRow.Add(keyboardCard);
+                var cardsRow = new VisualElement();
+                cardsRow.style.flexDirection = FlexDirection.Row;
+                cardsRow.style.justifyContent = Justify.Center;
+                cardsRow.style.marginBottom = UIStyles.SpaceLG;
 
-            var spacer = new VisualElement();
-            spacer.style.width = UIStyles.Space2XL;
-            cardsRow.Add(spacer);
+                if (allowKeyboard)
+                {
+                    keyboardCard = BuildKeyboardCard(selectedMode == ControlMode.KeyboardMouse);
+                    if (bothModes)
+                    {
+                        keyboardCard.RegisterCallback<ClickEvent>(evt =>
+                        {
+                            evt.StopPropagation();
+                            SelectControlMode(ControlMode.KeyboardMouse);
+                        });
+                    }
+                    cardsRow.Add(keyboardCard);
+                }
 
-            mouseCard = BuildMouseCard(false);
-            mouseCard.RegisterCallback<ClickEvent>(evt =>
-            {
-                evt.StopPropagation();
-                SelectControlMode(ControlMode.MouseOnly);
-            });
-            cardsRow.Add(mouseCard);
+                if (bothModes)
+                {
+                    var spacer = new VisualElement();
+                    spacer.style.width = UIStyles.Space2XL;
+                    cardsRow.Add(spacer);
+                }
 
-            panel.Add(cardsRow);
+                if (allowMouse)
+                {
+                    mouseCard = BuildMouseCard(selectedMode == ControlMode.MouseOnly);
+                    if (bothModes)
+                    {
+                        mouseCard.RegisterCallback<ClickEvent>(evt =>
+                        {
+                            evt.StopPropagation();
+                            SelectControlMode(ControlMode.MouseOnly);
+                        });
+                    }
+                    cardsRow.Add(mouseCard);
+                }
 
-            // Explanation label (updates when a card is selected)
-            explanationLabel = new Label(ExplanationKeyboard);
-            explanationLabel.style.fontSize = UIStyles.FontBase;
-            explanationLabel.style.color = UIStyles.TextSecondary;
-            explanationLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
-            explanationLabel.style.whiteSpace = WhiteSpace.Normal;
-            explanationLabel.style.marginTop = UIStyles.SpaceLG;
-            explanationLabel.style.marginBottom = UIStyles.SpaceXL;
-            explanationLabel.style.paddingTop = UIStyles.SpaceMD;
-            explanationLabel.style.paddingBottom = UIStyles.SpaceMD;
-            explanationLabel.style.paddingLeft = UIStyles.SpaceLG;
-            explanationLabel.style.paddingRight = UIStyles.SpaceLG;
-            explanationLabel.style.backgroundColor = UIStyles.BgElevated;
-            UIStyles.SetBorderRadius(explanationLabel, UIStyles.RadiusSM);
-            explanationLabel.style.minWidth = 520;
-            panel.Add(explanationLabel);
+                panel.Add(cardsRow);
+
+                // Explanation label (updates when a card is selected, when a choice is offered)
+                explanationLabel = new Label(selectedMode == ControlMode.MouseOnly ? ExplanationMouse : ExplanationKeyboard);
+                explanationLabel.style.fontSize = UIStyles.FontBase;
+                explanationLabel.style.color = UIStyles.TextSecondary;
+                explanationLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
+                explanationLabel.style.whiteSpace = WhiteSpace.Normal;
+                explanationLabel.style.marginTop = UIStyles.SpaceLG;
+                explanationLabel.style.marginBottom = UIStyles.SpaceXL;
+                explanationLabel.style.paddingTop = UIStyles.SpaceMD;
+                explanationLabel.style.paddingBottom = UIStyles.SpaceMD;
+                explanationLabel.style.paddingLeft = UIStyles.SpaceLG;
+                explanationLabel.style.paddingRight = UIStyles.SpaceLG;
+                explanationLabel.style.backgroundColor = UIStyles.BgElevated;
+                UIStyles.SetBorderRadius(explanationLabel, UIStyles.RadiusSM);
+                explanationLabel.style.minWidth = 520;
+                panel.Add(explanationLabel);
+            }
 
             // Back + Play buttons
             var buttonRow = new VisualElement();
@@ -499,7 +541,12 @@ namespace WiseTwin
         void OnPlayButtonClicked()
         {
             if (debugMode) Debug.Log("[TutorialUI] Play clicked → completing tutorial");
-            ControlModeSettings.ApplyToPlayer();
+            // Only apply a WiseTwin controller when at least one mode is offered;
+            // otherwise the host project owns the player controller.
+            if (allowKeyboard || allowMouse)
+            {
+                ControlModeSettings.ApplyToPlayer();
+            }
             OnTutorialCompleted?.Invoke();
             Hide();
         }

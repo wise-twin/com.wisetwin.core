@@ -347,7 +347,17 @@ WiseTwinManager.Instance.RestartTraining()        // Full reset + reload scene (
 WiseTwinManager.Instance.ReloadMetadata()         // Reload from source
 WiseTwinManager.Instance.SavePlayerSpawnPosition()
 WiseTwinManager.Instance.ResetPlayerPosition()
+WiseTwinManager.Instance.AllowKeyboardControl     // bool — keyboard (WASD) mode offered?
+WiseTwinManager.Instance.AllowMouseControl        // bool — mouse (click-to-move) mode offered?
 ```
+
+### Player Control Modes (build option)
+Two toggles in the WiseTwin Editor **General Settings** tab decide how the player moves, baked into the `WiseTwinManager` scene component. The onboarding tutorial (welcome + instructions) always shows; only the control-mode choice adapts:
+- **Allow Keyboard (WASD)** + **Allow Mouse (click-to-move)** both on → player chooses on the controls step.
+- Exactly one on → controls step shows that mode pre-selected (no choice), applied automatically.
+- Neither on → controls step hidden, WiseTwin applies no controller; the host project owns it.
+
+`ProgressionManager.ShowTutorialOrStart()` reads the flags and calls `TutorialUI.Configure(keyboard, mouse)`, which builds the adaptive panel and only calls `ControlModeSettings.ApplyToPlayer()` when a mode is enabled. Stored internally as inverted `disableKeyboardControl` / `disableMouseControl` serialized fields (default false = enabled) so adding the fields to existing scenes/prefabs keeps both modes on.
 
 ### MetadataLoader
 ```csharp

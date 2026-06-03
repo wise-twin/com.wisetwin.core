@@ -18,7 +18,16 @@ namespace WiseTwin
         
         [SerializeField, Tooltip("Use production mode (Azure API + web notifications)")]
         private bool useProductionMode = false;
-        
+
+        [Header("🎮 Player Controls")]
+        // Stored as "disable" flags (default false = enabled) so that adding these fields to an
+        // already-serialized scene/prefab keeps both modes ON (Unity deserializes missing bools as
+        // false). The editor window exposes them as positive "Allow ..." toggles.
+        [SerializeField, Tooltip("Disable keyboard + mouse (WASD) navigation offered at training start")]
+        private bool disableKeyboardControl = false;
+        [SerializeField, Tooltip("Disable mouse-only (click-to-move) navigation offered at training start")]
+        private bool disableMouseControl = false;
+
         [Header("📋 References")]
         [SerializeField, Tooltip("MetadataLoader component (auto-found if empty)")]
         private MetadataLoader metadataLoader;
@@ -37,6 +46,10 @@ namespace WiseTwin
         // Public Properties for settings
         public bool EnableDebugLogs => enableDebugLogs;
         public bool IsProductionMode() => useProductionMode;
+
+        // Control modes offered at training start (drive the tutorial choice / auto-apply)
+        public bool AllowKeyboardControl => !disableKeyboardControl;
+        public bool AllowMouseControl => !disableMouseControl;
         
         // Quick access properties
         public bool IsMetadataLoaded => metadataLoader != null && metadataLoader.IsLoaded;

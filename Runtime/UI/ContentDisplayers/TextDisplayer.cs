@@ -96,7 +96,9 @@ namespace WiseTwin.UI
             contentBox.style.position = Position.Relative;
             contentBox.style.width = 820;
             contentBox.style.maxWidth = Length.Percent(90);
-            contentBox.style.height = 620;
+            // Auto-size to content (compact for short text) with the footer button pinned
+            // to the bottom; caps at maxHeight and scrolls when the content is long.
+            contentBox.style.minHeight = 260;
             contentBox.style.maxHeight = Length.Percent(85);
             UIStyles.ApplyCardStyle(contentBox, UIStyles.RadiusXL);
             contentBox.style.flexDirection = FlexDirection.Column;
@@ -162,11 +164,31 @@ namespace WiseTwin.UI
                 ParseAndCreateContent(content, contentContainer);
             }
 
+            scrollView.Add(contentContainer);
+            contentWrapper.Add(scrollView);
+
+            // Minimal scrollbar
+            contentBox.RegisterCallback<AttachToPanelEvent>((evt) => UIStyles.ApplyMinimalScrollbar(scrollView));
+            scrollView.RegisterCallback<GeometryChangedEvent>((evt) => UIStyles.ApplyMinimalScrollbar(scrollView));
+
+            contentBox.Add(contentWrapper);
+
+            // ========== FOOTER (fixed at the bottom, separated from the scroll area) ==========
             if (showContinueButton)
             {
-                var buttonContainer = new VisualElement();
-                buttonContainer.style.marginTop = UIStyles.Space3XL;
-                buttonContainer.style.alignItems = Align.Center;
+                var footer = new VisualElement();
+                footer.style.flexShrink = 0;
+                footer.style.flexDirection = FlexDirection.Row;
+                footer.style.justifyContent = Justify.FlexEnd;
+                footer.style.alignItems = Align.Center;
+                footer.style.paddingTop = UIStyles.SpaceLG;
+                footer.style.paddingBottom = UIStyles.SpaceLG;
+                footer.style.paddingLeft = UIStyles.Space3XL;
+                footer.style.paddingRight = UIStyles.Space3XL;
+                footer.style.borderTopWidth = 1;
+                footer.style.borderTopColor = UIStyles.BorderSubtle;
+                footer.style.borderBottomLeftRadius = UIStyles.RadiusXL;
+                footer.style.borderBottomRightRadius = UIStyles.RadiusXL;
 
                 var continueButton = UIStyles.CreatePrimaryButton(
                     "",
@@ -182,22 +204,14 @@ namespace WiseTwin.UI
                         Close();
                     }
                 );
-                UIStyles.SetButtonIcon(continueButton, WiseTwinIcons.ArrowRight(20, UIStyles.TextOnAccent));
-                continueButton.style.width = 200;
-                UIStyles.SetBorderRadius(continueButton, UIStyles.RadiusPill);
-                buttonContainer.Add(continueButton);
+                UIStyles.SetButtonIcon(continueButton, WiseTwinIcons.ArrowRight(28, UIStyles.TextOnAccent));
+                continueButton.style.width = 140;
+                continueButton.style.flexShrink = 0;
+                footer.Add(continueButton);
 
-                contentContainer.Add(buttonContainer);
+                contentBox.Add(footer);
             }
 
-            scrollView.Add(contentContainer);
-            contentWrapper.Add(scrollView);
-
-            // Minimal scrollbar
-            contentBox.RegisterCallback<AttachToPanelEvent>((evt) => UIStyles.ApplyMinimalScrollbar(scrollView));
-            scrollView.RegisterCallback<GeometryChangedEvent>((evt) => UIStyles.ApplyMinimalScrollbar(scrollView));
-
-            contentBox.Add(contentWrapper);
             modalContainer.Add(contentBox);
             rootElement.Add(modalContainer);
         }

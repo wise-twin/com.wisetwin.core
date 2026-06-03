@@ -96,6 +96,37 @@ namespace WiseTwin.Editor
 
             EditorGUILayout.Space();
 
+            // Player Controls
+            EditorGUILayout.LabelField("🎮 Player Controls", EditorStyles.boldLabel);
+            EditorGUILayout.BeginVertical("box");
+
+            bool newAllowKeyboard = EditorGUILayout.Toggle("Allow Keyboard (WASD)", data.allowKeyboardControl);
+            bool newAllowMouse = EditorGUILayout.Toggle("Allow Mouse (click-to-move)", data.allowMouseControl);
+
+            if (newAllowKeyboard != data.allowKeyboardControl || newAllowMouse != data.allowMouseControl)
+            {
+                data.allowKeyboardControl = newAllowKeyboard;
+                data.allowMouseControl = newAllowMouse;
+                EditorUtility.SetDirty(window);
+                ApplyControlModesToManager(data.allowKeyboardControl, data.allowMouseControl);
+            }
+
+            string controlsHelp;
+            if (data.allowKeyboardControl && data.allowMouseControl)
+                controlsHelp = "🎮 Both modes: the player is asked to choose keyboard or mouse at the start of the training (tutorial choice).";
+            else if (data.allowKeyboardControl)
+                controlsHelp = "⌨️ Keyboard only: no choice UI — WASD navigation is applied automatically.";
+            else if (data.allowMouseControl)
+                controlsHelp = "🖱️ Mouse only: no choice UI — click-to-move navigation is applied automatically.";
+            else
+                controlsHelp = "🚫 None: WiseTwin does NOT manage player controls. The host Unity project is responsible for the player controller (disable WiseTwin's FirstPersonCharacter if unused).";
+
+            EditorGUILayout.HelpBox(controlsHelp, MessageType.Info);
+
+            EditorGUILayout.EndVertical();
+
+            EditorGUILayout.Space();
+
             // Project Information
             EditorGUILayout.LabelField("📋 Project Information", EditorStyles.boldLabel);
             EditorGUILayout.BeginVertical("box");
@@ -137,10 +168,39 @@ namespace WiseTwin.Editor
             }
         }
 
+        private static void ApplyControlModesToManager(bool allowKeyboard, bool allowMouse)
+        {
+            WiseTwin.WiseTwinManager manager = Object.FindFirstObjectByType<WiseTwin.WiseTwinManager>();
+            if (manager != null)
+            {
+                SerializedObject managerSO = new SerializedObject(manager);
+                // Serialized as inverted "disable" flags (see WiseTwinManager)
+                SerializedProperty kbProp = managerSO.FindProperty("disableKeyboardControl");
+                SerializedProperty mouseProp = managerSO.FindProperty("disableMouseControl");
+                if (kbProp != null && mouseProp != null)
+                {
+                    kbProp.boolValue = !allowKeyboard;
+                    mouseProp.boolValue = !allowMouse;
+                    managerSO.ApplyModifiedProperties();
+                    EditorUtility.SetDirty(manager);
+                    UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(manager.gameObject.scene);
+
+                    Debug.Log($"✅ WiseTwinManager: Control modes appliqués (keyboard={allowKeyboard}, mouse={allowMouse})");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("❌ WiseTwinManager not found in scene!");
+            }
+        }
+
         private static void ApplySettingsToScene(WiseTwinEditorData data)
         {
             // Appliquer le mode local/production
             ApplyLocalModeToManager(data.useLocalMode);
+
+            // Appliquer les modes de contrôle joueur
+            ApplyControlModesToManager(data.allowKeyboardControl, data.allowMouseControl);
 
             // Chercher le MetadataLoader dans la scène
             MetadataLoader loader = Object.FindFirstObjectByType<MetadataLoader>();

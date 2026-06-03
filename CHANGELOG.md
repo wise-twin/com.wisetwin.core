@@ -2,6 +2,15 @@
 
 All notable changes to the WiseTwin Core Package will be documented in this file.
 
+## [1.7.0] - 2026-06-03
+
+### Added
+- **Selectable player control modes (build option)** — Two toggles in the WiseTwin Editor *General Settings* tab, `Allow Keyboard (WASD)` and `Allow Mouse (click-to-move)`, baked into the `WiseTwinManager` scene component. The onboarding tutorial (welcome panel + instructions) **always shows**; only the control-mode *choice* adapts:
+  - **Both enabled** → the player chooses keyboard or mouse on the controls step (unchanged default behavior).
+  - **Exactly one enabled** → no choice; the controls step shows that single mode pre-selected and applies it automatically.
+  - **Neither enabled** → the controls step is hidden and WiseTwin applies no controller; the host Unity project owns the player controller.
+  - Exposed at runtime via `WiseTwinManager.AllowKeyboardControl` / `AllowMouseControl`; `TutorialUI.Configure(keyboard, mouse)` drives the adaptive panel. Stored internally as inverted "disable" flags (default false) so existing scenes/prefabs keep both modes enabled with no migration.
+
 ## [1.6.0] - 2026-06-03
 
 ### Added
