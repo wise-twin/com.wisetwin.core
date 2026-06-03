@@ -2,6 +2,20 @@
 
 All notable changes to the WiseTwin Core Package will be documented in this file.
 
+## [1.8.0] - 2026-06-03
+
+### Added
+- **Illustration images for scenarios (text, QCM, procedure)** — Optional image per text scenario (top of the bubble), per question (under the prompt, single and multi-question flows) and per procedure step. Click to zoom full-screen. Images are configured by dragging any imported `Texture2D` in the WiseTwin Editor (Scenario Configuration tab).
+- **`WiseTwinImage` runtime helper** (`Runtime/UI/WiseTwinImage.cs`) — shared `Load(path)` + `CreateThumbnail(texture)` (clickable, zoom overlay) used by the Text, Question and Procedure displayers.
+
+### Changed
+- **Images are now embedded in the build via Resources** — On *Generate Metadata*, each referenced image is copied into `Assets/WiseTwin/Resources/ScenarioImages/` and the JSON stores a Resources-relative path (`"imagePath": "ScenarioImages/foo"`). Loaded at runtime with `Resources.Load`, so it works offline and on WebGL.
+
+### Fixed
+- **Scenario images never loaded at runtime** — The editor previously stored an `Assets/...` project path (via `AssetDatabase.GetAssetPath`) that the runtime loader could not resolve, so procedure-step images silently failed (the "images don't save" report). The new copy-to-Resources pipeline fixes this end to end.
+- **Image field appeared empty after reopening the editor** — The `Texture2D` reference is now re-hydrated from the stored Resources path on load.
+- **Procedure step image was locked to Click/Group steps** — Now available for every validation type.
+
 ## [1.7.0] - 2026-06-03
 
 ### Added

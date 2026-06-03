@@ -58,6 +58,12 @@ namespace WiseTwin.Editor
         public string feedback = "";
         public string incorrectFeedback = "";
         public string hint = "";
+
+        // Optional illustration image (embedded in the build via Resources).
+        // 'image' is the editor reference; 'imagePath' is the Resources-relative path
+        // written to / read from the metadata JSON.
+        public Texture2D image = null;
+        public string imagePath = "";
     }
 
     [Serializable]
@@ -81,7 +87,8 @@ namespace WiseTwin.Editor
         public ValidationType validationType = ValidationType.Click;
         public GameObject zoneObject = null;
         public string zoneObjectName = "";
-        public Sprite image = null;
+        // Optional illustration image (embedded in the build via Resources).
+        public Texture2D image = null;
         public string imagePath = "";
         public List<FakeObject> fakeObjects = new List<FakeObject>();
 
@@ -105,6 +112,10 @@ namespace WiseTwin.Editor
     {
         public string title = "";
         public string content = "";
+
+        // Optional illustration image (embedded in the build via Resources).
+        public Texture2D image = null;
+        public string imagePath = "";
     }
 
     [Serializable]

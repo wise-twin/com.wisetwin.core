@@ -478,6 +478,18 @@ public class WiseTwinEditor : EditorWindow
         {
             question.hint = "";
         }
+
+        // Load image path + re-hydrate the editor texture reference from Resources
+        if (questionDict.ContainsKey("imagePath"))
+        {
+            question.imagePath = GetFlatString(questionDict["imagePath"]);
+            question.image = LoadImageAssetFromResourcesPath(question.imagePath);
+        }
+        else
+        {
+            question.imagePath = "";
+            question.image = null;
+        }
     }
 
     void LoadProcedureDataFromJSON(WiseTwin.Editor.ProcedureScenarioData procedure, object procedureObj)
@@ -580,11 +592,11 @@ public class WiseTwinEditor : EditorWindow
                     }
                 }
 
-                // Load image path
+                // Load image path + re-hydrate the editor texture reference from Resources
                 if (stepDict.ContainsKey("imagePath"))
                 {
                     step.imagePath = GetFlatString(stepDict["imagePath"]);
-                    // Note: Actual Sprite objects need to be loaded manually in editor from this path
+                    step.image = LoadImageAssetFromResourcesPath(step.imagePath);
                 }
 
                 // Load hint (reset to empty if not present)
@@ -649,6 +661,18 @@ public class WiseTwinEditor : EditorWindow
         if (textDict.ContainsKey("content"))
         {
             text.content = GetFlatString(textDict["content"]);
+        }
+
+        // Load image path + re-hydrate the editor texture reference from Resources
+        if (textDict.ContainsKey("imagePath"))
+        {
+            text.imagePath = GetFlatString(textDict["imagePath"]);
+            text.image = LoadImageAssetFromResourcesPath(text.imagePath);
+        }
+        else
+        {
+            text.imagePath = "";
+            text.image = null;
         }
     }
 
@@ -1084,6 +1108,74 @@ public class WiseTwinEditor : EditorWindow
         return scenariosJSON;
     }
 
+    // Managed Resources folder where scenario illustration images are copied so they ship in the build.
+    const string ScenarioImagesResourcesDir = "Assets/WiseTwin/Resources/ScenarioImages";
+
+    /// <summary>
+    /// Copy a scenario illustration image into a Resources folder (so it is embedded in the build)
+    /// and return its Resources-relative path without extension (e.g. "ScenarioImages/foo").
+    /// If the image is already under any Resources/ folder, its path is reused without copying.
+    /// Returns "" when image is null or has no asset path.
+    /// </summary>
+    string CopyImageToResources(Texture2D image)
+    {
+        if (image == null) return "";
+        string srcPath = AssetDatabase.GetAssetPath(image);
+        if (string.IsNullOrEmpty(srcPath)) return "";
+
+        string normalized = srcPath.Replace('\\', '/');
+        string ext = Path.GetExtension(normalized);
+        string nameNoExt = Path.GetFileNameWithoutExtension(normalized);
+
+        // Already under a Resources folder → reuse it directly, no copy.
+        int resIdx = normalized.IndexOf("/Resources/", StringComparison.OrdinalIgnoreCase);
+        if (resIdx >= 0)
+        {
+            string rel = normalized.Substring(resIdx + "/Resources/".Length);
+            if (rel.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+                rel = rel.Substring(0, rel.Length - ext.Length);
+            return rel;
+        }
+
+        EnsureFolderExists(ScenarioImagesResourcesDir);
+        string destPath = $"{ScenarioImagesResourcesDir}/{nameNoExt}{ext}";
+
+        if (AssetDatabase.LoadAssetAtPath<Texture2D>(destPath) != null)
+            AssetDatabase.DeleteAsset(destPath);
+
+        if (!AssetDatabase.CopyAsset(srcPath, destPath))
+        {
+            Debug.LogWarning($"[WiseTwinEditor] Failed to copy image into Resources: {srcPath} -> {destPath}");
+            return "";
+        }
+        AssetDatabase.ImportAsset(destPath);
+        return $"ScenarioImages/{nameNoExt}";
+    }
+
+    void EnsureFolderExists(string assetFolder)
+    {
+        if (AssetDatabase.IsValidFolder(assetFolder)) return;
+        string[] parts = assetFolder.Split('/');
+        string current = parts[0]; // "Assets"
+        for (int i = 1; i < parts.Length; i++)
+        {
+            string next = $"{current}/{parts[i]}";
+            if (!AssetDatabase.IsValidFolder(next))
+                AssetDatabase.CreateFolder(current, parts[i]);
+            current = next;
+        }
+    }
+
+    /// <summary>Re-hydrate the editor Texture2D reference from a stored Resources-relative path.</summary>
+    Texture2D LoadImageAssetFromResourcesPath(string resourcesPath)
+    {
+        if (string.IsNullOrEmpty(resourcesPath)) return null;
+        string p = resourcesPath;
+        int dot = p.LastIndexOf('.');
+        if (dot >= 0) p = p.Substring(0, dot);
+        return Resources.Load<Texture2D>(p);
+    }
+
     Dictionary<string, object> ConvertQuestionDataToJSON(WiseTwin.Editor.QuestionScenarioData question)
     {
         var questionDict = new Dictionary<string, object>
@@ -1093,6 +1185,14 @@ public class WiseTwinEditor : EditorWindow
             ["correctAnswers"] = new List<int>(question.correctAnswers),
             ["isMultipleChoice"] = question.isMultipleChoice
         };
+
+        // Illustration image: embed in the build (Resources) and store the relative path
+        string qImagePath = question.image != null ? CopyImageToResources(question.image) : question.imagePath;
+        if (!string.IsNullOrEmpty(qImagePath))
+        {
+            question.imagePath = qImagePath;
+            questionDict["imagePath"] = qImagePath;
+        }
 
         // Add feedback if provided
         if (!string.IsNullOrEmpty(question.feedback))
@@ -1164,10 +1264,12 @@ public class WiseTwinEditor : EditorWindow
                 stepDict["targetObjectNames"] = groupNames;
             }
 
-            // Add image path if it exists
-            if (!string.IsNullOrEmpty(step.imagePath))
+            // Illustration image: embed in the build (Resources) and store the relative path
+            string stepImagePath = step.image != null ? CopyImageToResources(step.image) : step.imagePath;
+            if (!string.IsNullOrEmpty(stepImagePath))
             {
-                stepDict["imagePath"] = step.imagePath;
+                step.imagePath = stepImagePath;
+                stepDict["imagePath"] = stepImagePath;
             }
 
             // Note: Hints removed for procedures - not exported to JSON anymore
@@ -1205,11 +1307,21 @@ public class WiseTwinEditor : EditorWindow
 
     Dictionary<string, object> ConvertTextDataToJSON(WiseTwin.Editor.TextScenarioData text)
     {
-        return new Dictionary<string, object>
+        var dict = new Dictionary<string, object>
         {
             ["title"] = text.title ?? "",
             ["content"] = text.content ?? ""
         };
+
+        // Illustration image: embed in the build (Resources) and store the relative path
+        string imgPath = text.image != null ? CopyImageToResources(text.image) : text.imagePath;
+        if (!string.IsNullOrEmpty(imgPath))
+        {
+            text.imagePath = imgPath;
+            dict["imagePath"] = imgPath;
+        }
+
+        return dict;
     }
 
     Dictionary<string, object> ConvertDialogueDataToJSON(WiseTwin.Editor.DialogueScenarioData dialogue)

@@ -36,9 +36,10 @@ namespace WiseTwin.UI
             string title = ExtractLocalizedText(contentData, "title", lang);
             string subtitle = ExtractLocalizedText(contentData, "subtitle", lang);
             string content = ExtractLocalizedText(contentData, "content", lang);
+            string imagePath = ExtractLocalizedText(contentData, "imagePath", lang);
             bool showContinueButton = ExtractBool(contentData, "showContinueButton", true);
 
-            CreateModernTextUI(title, subtitle, content, showContinueButton);
+            CreateModernTextUI(title, subtitle, content, showContinueButton, imagePath);
 
             // Analytics
             if (TrainingAnalytics.Instance != null)
@@ -74,7 +75,7 @@ namespace WiseTwin.UI
             }
         }
 
-        void CreateModernTextUI(string title, string subtitle, string content, bool showContinueButton)
+        void CreateModernTextUI(string title, string subtitle, string content, bool showContinueButton, string imagePath = "")
         {
             rootElement.Clear();
 
@@ -158,6 +159,13 @@ namespace WiseTwin.UI
             contentContainer.style.paddingBottom = UIStyles.Space2XL;
             contentContainer.style.paddingLeft = UIStyles.Space4XL;
             contentContainer.style.paddingRight = UIStyles.Space3XL;
+
+            // Optional illustration image at the top of the bubble (clickable to zoom)
+            var bubbleImage = WiseTwinImage.Load(imagePath);
+            if (bubbleImage != null)
+            {
+                contentContainer.Add(WiseTwinImage.CreateThumbnail(bubbleImage, 240f));
+            }
 
             if (!string.IsNullOrEmpty(content))
             {

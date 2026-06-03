@@ -1293,65 +1293,10 @@ namespace WiseTwin.UI
             }
         }
 
-        // NEW: Load image texture from path
+        // Load image texture from a Resources-relative path (shared loader, build-embedded images).
         Texture2D LoadImageTexture(string imagePath)
         {
-            if (string.IsNullOrEmpty(imagePath)) return null;
-
-            Debug.Log($"[ProcedureDisplayer] Attempting to load image from: {imagePath}");
-
-            // Clean up the path for Resources.Load
-            string resourcePath = imagePath;
-
-            // Remove "Assets/Resources/" prefix if present
-            if (resourcePath.StartsWith("Assets/Resources/"))
-            {
-                resourcePath = resourcePath.Substring("Assets/Resources/".Length);
-            }
-            else if (resourcePath.StartsWith("Resources/"))
-            {
-                resourcePath = resourcePath.Substring("Resources/".Length);
-            }
-
-            // Remove file extension if present
-            if (resourcePath.Contains("."))
-            {
-                resourcePath = resourcePath.Substring(0, resourcePath.LastIndexOf('.'));
-            }
-
-            Debug.Log($"[ProcedureDisplayer] Cleaned resource path: {resourcePath}");
-
-            // Try to load as Texture2D first (for PNG/JPG)
-            var texture = Resources.Load<Texture2D>(resourcePath);
-            if (texture != null)
-            {
-                Debug.Log($"[ProcedureDisplayer] Successfully loaded texture: {resourcePath}");
-                return texture;
-            }
-
-            // Try to load as Sprite
-            var sprite = Resources.Load<Sprite>(resourcePath);
-            if (sprite != null)
-            {
-                Debug.Log($"[ProcedureDisplayer] Successfully loaded sprite: {resourcePath}");
-                return sprite.texture;
-            }
-
-            // If not in Resources, try loading from StreamingAssets
-            string streamingPath = System.IO.Path.Combine(Application.streamingAssetsPath, imagePath);
-            if (System.IO.File.Exists(streamingPath))
-            {
-                Debug.Log($"[ProcedureDisplayer] Loading from StreamingAssets: {streamingPath}");
-                byte[] imageData = System.IO.File.ReadAllBytes(streamingPath);
-                Texture2D tex = new Texture2D(2, 2);
-                if (tex.LoadImage(imageData))
-                {
-                    return tex;
-                }
-            }
-
-            Debug.LogWarning($"[ProcedureDisplayer] Could not load image from path: {imagePath} (cleaned: {resourcePath})");
-            return null;
+            return WiseTwinImage.Load(imagePath);
         }
 
         void Update()

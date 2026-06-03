@@ -427,6 +427,9 @@ namespace WiseTwin.Editor
             EditorGUILayout.LabelField("Question Text", EditorStyles.miniBoldLabel);
             question.questionText = EditorGUILayout.TextArea(question.questionText, textAreaStyle, GUILayout.Height(50));
 
+            // Illustration image (optional)
+            DrawImageField($"q_{question.GetHashCode()}", question.image, t => question.image = t);
+
             EditorGUILayout.Space(4);
 
             // Multiple choice toggle
@@ -728,7 +731,10 @@ namespace WiseTwin.Editor
                 EditorGUILayout.LabelField("Text", EditorStyles.miniBoldLabel);
                 step.text = EditorGUILayout.TextArea(step.text, textAreaStyle, GUILayout.Height(40));
 
-                // Highlight, Blink, Images, Fake Objects: for Click and Group validation
+                // Illustration image (optional) — available for every validation type
+                DrawImageField($"step_{index}_{step.GetHashCode()}", step.image, t => step.image = t);
+
+                // Highlight, Blink, Fake Objects: for Click and Group validation
                 if (step.validationType == ValidationType.Click || step.validationType == ValidationType.Group)
                 {
                     EditorGUILayout.Space(2);
@@ -738,21 +744,6 @@ namespace WiseTwin.Editor
                     step.highlightColor = EditorGUILayout.ColorField("Highlight", step.highlightColor, GUILayout.Width(250));
                     step.useBlinking = EditorGUILayout.Toggle("Blink", step.useBlinking);
                     EditorGUILayout.EndHorizontal();
-
-                    // Images (collapsible)
-                    string imgKey = $"img_{index}_{step.GetHashCode()}";
-                    bool imgOpen = GetFoldout(imgKey, false);
-                    if (GUILayout.Button(imgOpen ? "v Images (Optional)" : "> Images (Optional)", EditorStyles.miniLabel))
-                    {
-                        SetFoldout(imgKey, !imgOpen);
-                    }
-                    if (imgOpen)
-                    {
-                        EditorGUI.indentLevel++;
-                        step.image = (Sprite)EditorGUILayout.ObjectField("Image", step.image, typeof(Sprite), false);
-                        if (step.image != null) step.imagePath = AssetDatabase.GetAssetPath(step.image);
-                        EditorGUI.indentLevel--;
-                    }
 
                     // Fake objects (collapsible)
                     string sfKey = $"sfake_{index}_{step.GetHashCode()}";
@@ -780,6 +771,29 @@ namespace WiseTwin.Editor
 
             EditorGUILayout.EndVertical();
             EditorGUILayout.Space(1);
+        }
+
+        /// <summary>
+        /// Collapsible optional illustration image picker, shared by procedure steps, questions
+        /// and text scenarios. The Texture2D is copied into Resources on Generate Metadata, so any
+        /// imported image works (no need to set the import type to Sprite).
+        /// </summary>
+        private static void DrawImageField(string key, Texture2D current, System.Action<Texture2D> setter)
+        {
+            string foldKey = $"img_{key}";
+            bool open = GetFoldout(foldKey, current != null);
+            if (GUILayout.Button(open ? "v Image (Optional)" : "> Image (Optional)", EditorStyles.miniLabel))
+            {
+                SetFoldout(foldKey, !open);
+            }
+            if (open)
+            {
+                EditorGUI.indentLevel++;
+                var newTex = (Texture2D)EditorGUILayout.ObjectField("Image", current, typeof(Texture2D), false);
+                if (newTex != current) setter(newTex);
+                EditorGUILayout.LabelField(" ", "Embedded in the build on Generate Metadata.", EditorStyles.miniLabel);
+                EditorGUI.indentLevel--;
+            }
         }
 
         private static void DrawFakeObject(FakeObject fake, int index, List<FakeObject> fakes)
@@ -827,6 +841,9 @@ namespace WiseTwin.Editor
 
                 EditorGUILayout.LabelField("Title", EditorStyles.miniBoldLabel);
                 text.title = EditorGUILayout.TextField("Title", text.title);
+
+                // Illustration image (optional)
+                DrawImageField($"text_{text.GetHashCode()}", text.image, t => text.image = t);
 
                 EditorGUILayout.EndVertical();
             }

@@ -178,7 +178,15 @@ Zone validation uses `ProcedureZoneTrigger` component added at runtime to the zo
 
 ### Procedure Features
 - **Fake objects**: Wrong objects highlighted alongside correct one, show custom error message on click
-- **Step images**: Optional images per step (EN/FR) with zoom overlay
+- **Step images**: Optional image per step with zoom overlay (see Scenario Illustration Images)
+
+### Scenario Illustration Images
+Optional image per **text** scenario (top of the bubble), per **question** (under the prompt, single + multi-question), and per **procedure step**. Click to zoom full-screen.
+
+- Configured by dragging any imported `Texture2D` in the WiseTwin Editor (Scenario Configuration tab → "Image (Optional)").
+- **Embedded in the build via Resources**: on *Generate Metadata*, the image is copied into `Assets/WiseTwin/Resources/ScenarioImages/` and the JSON stores a Resources-relative path: `"imagePath": "ScenarioImages/foo"`. Loaded at runtime with `Resources.Load` (offline + WebGL safe).
+- Shared runtime helper: `WiseTwin.UI.WiseTwinImage.Load(path)` / `CreateThumbnail(texture)` (used by Text, Question, Procedure displayers).
+- Editor copy/re-hydration lives in `WiseTwinEditor.CopyImageToResources` / `LoadImageAssetFromResourcesPath`.
 - **Highlight + blinking**: Configurable per step (color, blinking on/off)
 - **Analytics**: Tracks duration, wrong clicks per step, perfect completion
 

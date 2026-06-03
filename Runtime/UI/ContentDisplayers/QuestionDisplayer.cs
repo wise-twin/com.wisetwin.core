@@ -39,6 +39,7 @@ namespace WiseTwin.UI
 
         // Références UI pour mise à jour
         private Label questionLabel;
+        private VisualElement questionImageElement;
         private Label progressLabel;
         private VisualElement optionsContainer;
         private Button validateButton;
@@ -274,6 +275,26 @@ namespace WiseTwin.UI
             InitializeQuestionTracking();
         }
 
+        // Show/hide the per-question illustration image in the sequential (multi-question) flow.
+        private void UpdateQuestionImage(string imagePath)
+        {
+            if (questionImageElement == null) return;
+            questionImageElement.Clear();
+
+            var tex = WiseTwinImage.Load(imagePath);
+            if (tex != null)
+            {
+                var thumb = WiseTwinImage.CreateThumbnail(tex, 180f);
+                thumb.style.marginBottom = UIStyles.SpaceLG;
+                questionImageElement.Add(thumb);
+                questionImageElement.style.display = DisplayStyle.Flex;
+            }
+            else
+            {
+                questionImageElement.style.display = DisplayStyle.None;
+            }
+        }
+
         private void CreateQuestionUI()
         {
             rootElement.Clear();
@@ -307,6 +328,11 @@ namespace WiseTwin.UI
             questionLabel.style.whiteSpace = WhiteSpace.Normal;
             questionLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
             questionBox.Add(questionLabel);
+
+            // Optional per-question illustration image (updated on each question)
+            questionImageElement = new VisualElement();
+            questionImageElement.style.display = DisplayStyle.None;
+            questionBox.Add(questionImageElement);
 
             // Options container with scroll
             optionsContainer = new ScrollView();
@@ -542,6 +568,7 @@ namespace WiseTwin.UI
 
                     // Mettre à jour l'UI
                     questionLabel.text = questionText;
+                    UpdateQuestionImage(ExtractLocalizedText(questionDict, "imagePath", lang));
                     currentQuestionKey = currentKey; // Stocker la clé pour le tracking
 
                     // Mettre à jour le label d'instruction
@@ -620,6 +647,15 @@ namespace WiseTwin.UI
             questionLabel.style.whiteSpace = WhiteSpace.Normal;
             questionLabel.style.unityTextAlign = TextAnchor.MiddleCenter;
             questionBox.Add(questionLabel);
+
+            // Optional illustration image under the question (clickable to zoom)
+            var qImage = WiseTwinImage.Load(ExtractLocalizedText(currentQuestionData_Raw, "imagePath", ""));
+            if (qImage != null)
+            {
+                var thumb = WiseTwinImage.CreateThumbnail(qImage, 200f);
+                thumb.style.marginBottom = UIStyles.SpaceLG;
+                questionBox.Add(thumb);
+            }
 
             // Options container with scroll
             optionsContainer = new ScrollView();
