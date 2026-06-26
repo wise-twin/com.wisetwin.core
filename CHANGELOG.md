@@ -2,6 +2,11 @@
 
 All notable changes to the WiseTwin Core Package will be documented in this file.
 
+## [1.8.1] - 2026-06-26
+
+### Added
+- **Web Build Optimizer** (`Editor/WebBuildOptimizer.cs`, menu `WiseTwin → Optimisation → Optimiseur Web Build`) — Editor window to shrink the WebGL `.data` download (the main blocker on weak connections). Sets a WebGL platform override on textures (max size + crunch — never upscales, source untouched) and applies Mesh Compression to models. Dry-run analysis before applying; only touches `Assets/` (never package assets); always skips lightmaps, sprites, cookies and cursors.
+
 ## [1.8.0] - 2026-06-03
 
 ### Added
