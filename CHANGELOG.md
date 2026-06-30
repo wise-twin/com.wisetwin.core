@@ -2,6 +2,17 @@
 
 All notable changes to the WiseTwin Core Package will be documented in this file.
 
+## [1.9.0] - 2026-06-30
+
+### Changed
+- **Direct start to the first scenario — Unity intro/tutorial removed.** A training now launches straight into scenario 1 (procedure / QCM / dialogue). The on-load welcome panel and the tutorial panel (control-mode selection + Play button) are gone; `ProgressionManager` calls the new `StartTrainingDirectly()` (HUD + player controls + `StartProgression`). The training **presentation** (title, description, …) is now shown by the SaaS host (React intro screen) before the Unity canvas is revealed.
+
+### Removed
+- **`TutorialUI`** (`Runtime/UI/Controllers/TutorialUI.cs`) deleted — fully unused after the direct-start change. The package no longer manages the keyboard/mouse **control-mode choice**: it is now the responsibility of each formation's Unity scene (configure the player controller in-scene). `ControlModeSettings` remains available as a utility.
+
+### Migration
+- **Already-deployed builds are unaffected** (they embed their own package copy and keep working as-is). To get the new direct-start flow, **rebuild** the formation against this version. After rebuild, ensure the scene sets up its player controller, since the in-tutorial control-mode picker no longer exists.
+
 ## [1.8.1] - 2026-06-26
 
 ### Added

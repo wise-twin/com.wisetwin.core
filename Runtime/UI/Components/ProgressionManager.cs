@@ -158,9 +158,10 @@ namespace WiseTwin
 
             if (autoStartFirstScenario)
             {
-                // Show the onboarding tutorial (welcome + control mode selection + Play button)
-                // When the user clicks Play, the tutorial fires OnTutorialCompleted → StartProgression.
-                ShowTutorialOrStart();
+                // Plus d'écran d'accueil/tutoriel Unity : l'intro (présentation de
+                // la formation) est désormais affichée côté SaaS. On enchaîne
+                // directement sur le premier scénario.
+                StartTrainingDirectly();
             }
             else
             {
@@ -169,48 +170,14 @@ namespace WiseTwin
         }
 
         /// <summary>
-        /// Displays the onboarding tutorial before launching the training.
-        /// Creates a TutorialUI instance on the fly if one isn't already in the scene
-        /// and borrows PanelSettings from the TrainingHUD's UIDocument.
+        /// Lance directement la formation : affiche le HUD, active les contrôles
+        /// joueur et démarre le premier scénario. L'écran d'accueil/tutoriel
+        /// Unity a été retiré — la présentation de la formation est désormais
+        /// affichée côté SaaS (React), et le mode de contrôle (clavier/souris)
+        /// est géré par la scène de la formation, plus par le package.
         /// </summary>
-        void ShowTutorialOrStart()
+        void StartTrainingDirectly()
         {
-            var manager = WiseTwinManager.Instance;
-            bool allowKeyboard = manager == null || manager.AllowKeyboardControl;
-            bool allowMouse = manager == null || manager.AllowMouseControl;
-
-            var tutorial = TutorialUI.Instance;
-            if (tutorial == null)
-            {
-                var tutorialGO = new GameObject("TutorialUI");
-                tutorial = tutorialGO.AddComponent<TutorialUI>();
-
-                // Borrow panel settings from the HUD so the UIDocument can render
-                var hud = TrainingHUD.Instance;
-                if (hud != null)
-                {
-                    var hudDoc = hud.GetComponent<UnityEngine.UIElements.UIDocument>();
-                    if (hudDoc != null && hudDoc.panelSettings != null)
-                    {
-                        tutorial.SetPanelSettings(hudDoc.panelSettings);
-                    }
-                }
-            }
-
-            // The tutorial always shows the welcome/onboarding. The control-mode CHOICE
-            // is only offered when both modes are enabled; with a single mode it is shown
-            // pre-selected, and with neither the control section is hidden entirely.
-            tutorial.Configure(allowKeyboard, allowMouse);
-            tutorial.OnTutorialCompleted -= OnTutorialCompleted;
-            tutorial.OnTutorialCompleted += OnTutorialCompleted;
-            tutorial.Show();
-        }
-
-        void OnTutorialCompleted()
-        {
-            var tutorial = TutorialUI.Instance;
-            if (tutorial != null) tutorial.OnTutorialCompleted -= OnTutorialCompleted;
-
             // Show the training HUD and hand over to the progression
             if (TrainingHUD.Instance != null)
             {

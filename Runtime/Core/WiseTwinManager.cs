@@ -447,9 +447,6 @@ namespace WiseTwin
             var transitionPanel = FindFirstObjectByType<ScenarioTransitionPanel>();
             if (transitionPanel != null) Destroy(transitionPanel.gameObject);
 
-            var tutorialUI = FindFirstObjectByType<TutorialUI>();
-            if (tutorialUI != null) Destroy(tutorialUI.gameObject);
-
             // Détruire le HUD s'il est un objet root séparé
             var hud = FindFirstObjectByType<TrainingHUD>();
             if (hud != null) Destroy(hud.transform.root.gameObject);
