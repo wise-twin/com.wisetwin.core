@@ -10,6 +10,9 @@ All notable changes to the WiseTwin Core Package will be documented in this file
 ### Removed
 - **`TutorialUI`** (`Runtime/UI/Controllers/TutorialUI.cs`) deleted — fully unused after the direct-start change. The package no longer manages the keyboard/mouse **control-mode choice**: it is now the responsibility of each formation's Unity scene (configure the player controller in-scene). `ControlModeSettings` remains available as a utility.
 
+### Fixed
+- **Host HTML inputs now receive keyboard focus** — on WebGL, `WebGLInput.captureAllKeyboardInput` is set to `false` at startup so Unity only grabs the keyboard when its canvas is focused. This lets the SaaS host's HTML fields (e.g. the optional comment in the post-training rating) be typed into. Takes effect on rebuilt formations.
+
 ### Migration
 - **Already-deployed builds are unaffected** (they embed their own package copy and keep working as-is). To get the new direct-start flow, **rebuild** the formation against this version. After rebuild, ensure the scene sets up its player controller, since the in-tutorial control-mode picker no longer exists.
 

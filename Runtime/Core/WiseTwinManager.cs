@@ -96,6 +96,13 @@ namespace WiseTwin
         {
             DebugLog("🎯 WiseTwin Manager initialized successfully");
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // N'accaparer le clavier que lorsque le canvas Unity a le focus, afin
+            // que les champs de saisie HTML de l'hôte SaaS (ex. le commentaire de
+            // notation affiché après la formation) reçoivent bien les frappes.
+            WebGLInput.captureAllKeyboardInput = false;
+#endif
+
             // Save player's initial spawn position
             SavePlayerSpawnPosition();
         }
