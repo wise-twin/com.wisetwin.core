@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine.Networking;
@@ -53,6 +54,35 @@ public class MetadataLoader : MonoBehaviour
     
     // Singleton
     public static MetadataLoader Instance { get; private set; }
+
+    // Host-provided metadata URL (WebGL only, package 1.10.0). The host page
+    // sets window.wisetwinHost.metadataUrl ; see Plugins/WebGL/WiseTwinWebGL.jslib.
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [DllImport("__Internal")]
+    private static extern string GetHostMetadataUrl();
+#endif
+
+    /// <summary>URL fournie par la page hôte, ou null hors WebGL / si absente.</summary>
+    string GetHostProvidedMetadataUrl()
+    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        try
+        {
+            string url = GetHostMetadataUrl();
+            return string.IsNullOrEmpty(url) ? null : url;
+        }
+        catch (System.Exception e)
+        {
+            DebugLog($"⚠️ GetHostMetadataUrl failed: {e.Message}");
+            return null;
+        }
+#else
+        return null;
+#endif
+    }
+
+    /// <summary>True when the host page provided the metadata URL (mode "Host").</summary>
+    public bool IsHostMode { get; private set; }
 
     // Propriétés publiques
     public bool IsLoaded => loadedMetadata != null;
@@ -129,6 +159,20 @@ public class MetadataLoader : MonoBehaviour
     
     public void LoadMetadata()
     {
+        // 1.10.0 — the host page has priority over the baked configuration:
+        // the build no longer needs to know its container / API. Works for the
+        // SaaS player, the SCORM embed and the standalone SCORM package alike.
+        string hostUrl = GetHostProvidedMetadataUrl();
+        if (hostUrl != null)
+        {
+            IsHostMode = true;
+            DebugLog($"🧩 Host-provided metadata URL: {hostUrl}");
+            isLoading = true;
+            OnLoadStarted?.Invoke();
+            StartCoroutine(LoadFromUrl(hostUrl, "Host"));
+            return;
+        }
+
         bool useLocalMode = GetUseLocalMode();
         DebugLog($"🔄 Starting metadata load - Mode: {(useLocalMode ? "Local" : "Production")}");
 
@@ -195,6 +239,62 @@ public class MetadataLoader : MonoBehaviour
         yield return null;
     }
     
+    /// <summary>
+    /// Charge un metadata JSON depuis une URL absolue, avec retries. Accepte le
+    /// JSON brut (metadata.json d'un paquet SCORM) ou l'enveloppe de l'API
+    /// Next.js ({ success, data }).
+    /// </summary>
+    IEnumerator LoadFromUrl(string url, string label)
+    {
+        for (int attempt = 0; attempt < maxRetryAttempts; attempt++)
+        {
+            DebugLog($"🔄 [{label}] Tentative {attempt + 1}/{maxRetryAttempts} — {url}");
+
+            using (UnityWebRequest request = UnityWebRequest.Get(url))
+            {
+                request.timeout = (int)requestTimeout;
+                yield return request.SendWebRequest();
+
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    string body = request.downloadHandler.text;
+                    try
+                    {
+                        // Enveloppe API ({ success, data }) ou JSON direct
+                        var envelope = JsonConvert.DeserializeObject<Dictionary<string, object>>(body);
+                        if (envelope != null && envelope.ContainsKey("success") && envelope.ContainsKey("data"))
+                        {
+                            body = JsonConvert.SerializeObject(envelope["data"]);
+                        }
+                        ProcessJSON(body);
+                        DebugLog($"✅ [{label}] Métadonnées chargées ({body.Length} caractères)");
+                        isLoading = false;
+                        yield break;
+                    }
+                    catch (System.Exception e)
+                    {
+                        DebugLog($"❌ [{label}] Erreur parsing JSON: {e.Message}");
+                    }
+                }
+                else
+                {
+                    DebugLog($"❌ [{label}] Erreur réseau: {request.error} (Code: {request.responseCode})");
+                }
+            }
+
+            if (attempt < maxRetryAttempts - 1)
+            {
+                DebugLog($"⏳ Attente de {retryDelay}s...");
+                yield return new WaitForSeconds(retryDelay);
+            }
+        }
+
+        string error = $"❌ [{label}] Impossible de charger les métadonnées depuis {url}";
+        DebugLog(error);
+        isLoading = false;
+        OnLoadError?.Invoke(error);
+    }
+
     IEnumerator LoadFromAzure()
     {
         if (useAzureStorageDirect)
@@ -521,6 +621,7 @@ public class MetadataLoader : MonoBehaviour
         loadedMetadata = null;
         unityData = null;
         isLoading = false;
+        IsHostMode = false;
         LoadMetadata();
     }
     
@@ -611,7 +712,7 @@ public class MetadataLoader : MonoBehaviour
         
         GUILayout.Label("🎯 MetadataLoader", boldStyle);
         bool useLocalMode = GetUseLocalMode();
-        GUILayout.Label($"Mode: {(useLocalMode ? "Local" : "Production")}");
+        GUILayout.Label($"Mode: {(IsHostMode ? "Host" : useLocalMode ? "Local" : "Production")}");
         GUILayout.Label($"Scene: {sceneName}");
         GUILayout.Label($"Loaded: {(IsLoaded ? "✅" : "❌")}");
         

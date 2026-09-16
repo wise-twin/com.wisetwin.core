@@ -2,6 +2,15 @@
 
 All notable changes to the WiseTwin Core Package will be documented in this file.
 
+## [1.10.0] - 2026-09-15
+
+### Added
+- **Host-provided metadata URL** — a WebGL build no longer needs a baked `containerId` / `apiBaseUrl`. Before loading Unity, the host page sets `window.wisetwinHost = { metadataUrl: "…" }` (the SaaS player and the SCORM embed point it at `/api/unity/metadata?containerId=…&buildName=…`, a standalone SCORM package at `./metadata.json`). `MetadataLoader` asks the host first (new jslib `GetHostMetadataUrl`, new coroutine `LoadFromUrl`, `IsHostMode`), and only falls back to the legacy Local / Production modes when the host says nothing. Relative URLs are resolved by the page. The organization is now decided by **where the build is uploaded**, not by what was baked into it.
+- **`packageVersion` in the generated metadata** (`WiseTwinPackageInfo.Version`, mirrors `package.json`). The SaaS reads it to know whether a build supports host-provided metadata (SCORM full export requires ≥ 1.10.0).
+
+### Migration
+- No breaking change: builds made with older versions keep using their baked configuration. Rebuild against 1.10.0 to drop the Production-mode configuration and to allow SCORM full export. The Production-mode fields (`apiBaseUrl`, `containerId`, `useAzureStorageDirect`) are now a fallback and will be removed from the WiseTwin Editor in a later release.
+
 ## [1.9.0] - 2026-06-30
 
 ### Changed
