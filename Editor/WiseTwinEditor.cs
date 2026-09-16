@@ -980,6 +980,7 @@ public class WiseTwinEditor : EditorWindow
             title = data.projectTitle,
             description = data.projectDescription,
             version = data.projectVersion,
+            packageVersion = WiseTwin.WiseTwinPackageInfo.Version,
             language = data.languageOptions[data.languageIndex], // ISO 639-1 ("fr", "en", ...)
             duration = $"{data.durationMinutes} minutes", // Auto formatting
             difficulty = data.difficultyOptions[data.difficultyIndex], // Get from dropdown (déjà en français)

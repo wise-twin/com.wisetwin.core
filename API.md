@@ -355,3 +355,24 @@ The monitor only listens to `WiseTwinAPI` events — it never modifies the score
 
 - A working sample script is available under **Samples~/CustomScripting/CustomTrainingExample.cs** — import it from the Package Manager.
 - Internal architecture is documented in `CLAUDE.md` at the package root.
+
+## Host page contract (WebGL, package ≥ 1.10.0)
+
+The page that hosts the Unity canvas can hand the build two things through `window`:
+
+| Global | Set by | Purpose |
+|---|---|---|
+| `window.wisetwinHost.metadataUrl` | host page, **before** `createUnityInstance` | Where `MetadataLoader` fetches the training metadata (absolute or relative URL, JSON or `{ success, data }` envelope). When absent, the build falls back to its baked Local / Production configuration. |
+| `window.dispatchReactUnityEvent(name, json)` | react-unity-webgl (SaaS) or the SCORM package's `index.html` | Receives `"TrainingCompleted"` with the analytics JSON. The build never talks to the SaaS for completion: the host owns the transport. |
+
+Example (standalone SCORM package):
+
+```html
+<script>
+  window.wisetwinHost = { mode: "scorm", metadataUrl: "./metadata.json" };
+  window.dispatchReactUnityEvent = function (name, json) {
+    if (name === "TrainingCompleted") { /* map to the SCORM API */ }
+  };
+</script>
+```
+

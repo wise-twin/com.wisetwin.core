@@ -11,6 +11,12 @@ public class FormationMetadataComplete
     public string description;
     public string version;
 
+    // Version du package WiseTwin qui a généré ce metadata (1.10.0+). Le SaaS
+    // s'en sert pour savoir si le build accepte une URL de metadata fournie
+    // par l'hôte (export SCORM complet). Conservé par les éditions côté SaaS.
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public string packageVersion;
+
     // Language code of the training content (mono-language per build).
     // ISO 639-1 ("fr", "en", "es", ...). Optional — omitted from JSON when empty.
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
