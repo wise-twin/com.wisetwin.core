@@ -81,6 +81,9 @@ namespace WiseTwin.UI
             {
                 Debug.Log($"[ContentDisplayManager] UIDocument exists, panelSettings: {(uiDocument.panelSettings != null ? uiDocument.panelSettings.name : "NULL")}");
 
+                // Ensure sorting order is maintained after scene change
+                uiDocument.sortingOrder = 50;
+
                 root = uiDocument.rootVisualElement;
                 if (root == null)
                 {
@@ -99,7 +102,7 @@ namespace WiseTwin.UI
                 isDisplaying = false;
                 currentDisplayer = null;
 
-                Debug.Log("[ContentDisplayManager] UI refreshed successfully");
+                Debug.Log("[ContentDisplayManager] UI refreshed successfully (sortingOrder: 50)");
             }
             else
             {
@@ -150,6 +153,10 @@ namespace WiseTwin.UI
                 uiDocument = gameObject.AddComponent<UIDocument>();
                 if (debugMode) Debug.Log("[ContentDisplayManager] Created UIDocument component");
             }
+
+            // ContentDisplayManager UI doit être au-dessus de l'UI de la scène
+            // mais en dessous du TrainingHUD (sortingOrder 100) pour que le bouton restart reste accessible
+            uiDocument.sortingOrder = 50;
 
             // Vérifier qu'on ne partage pas le UIDocument avec un autre composant
             var otherUIUsers = GetComponents<MonoBehaviour>()
