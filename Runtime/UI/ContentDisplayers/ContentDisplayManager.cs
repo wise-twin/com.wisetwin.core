@@ -192,6 +192,9 @@ namespace WiseTwin.UI
         /// </summary>
         public void DisplayScenario(WiseTwin.ScenarioData scenario)
         {
+            Debug.Log($"[ContentDisplayManager] DisplayScenario called - scenario: {scenario?.id}, type: {scenario?.type}");
+            Debug.Log($"[ContentDisplayManager] UIDocument: {(uiDocument != null ? "exists" : "NULL")}, PanelSettings: {(uiDocument?.panelSettings != null ? uiDocument.panelSettings.name : "NULL")}, root: {(root != null ? "exists" : "NULL")}");
+
             if (scenario == null)
             {
                 Debug.LogError("[ContentDisplayManager] Scenario is null!");

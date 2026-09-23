@@ -204,12 +204,20 @@ namespace WiseTwin
         /// </summary>
         void StartTrainingDirectly()
         {
+            Debug.Log("[ProgressionManager] StartTrainingDirectly called");
+
             // Show the training HUD and hand over to the progression
             if (TrainingHUD.Instance != null)
             {
+                Debug.Log("[ProgressionManager] Calling TrainingHUD.InitializeForScenarios and Show");
                 TrainingHUD.Instance.InitializeForScenarios();
                 TrainingHUD.Instance.Show();
             }
+            else
+            {
+                Debug.LogWarning("[ProgressionManager] TrainingHUD.Instance is NULL!");
+            }
+
             PlayerControls.SetEnabled(true);
 
             StartProgression();

@@ -365,14 +365,20 @@ namespace WiseTwin
 
         public void Show()
         {
-            if (hudContainer == null) return;
+            Debug.Log($"[TrainingHUD] Show() called - hudContainer: {(hudContainer != null ? "exists" : "NULL")}");
+
+            if (hudContainer == null)
+            {
+                Debug.LogError("[TrainingHUD] Cannot show - hudContainer is null!");
+                return;
+            }
 
             isVisible = true;
             hudContainer.style.display = DisplayStyle.Flex;
             StartCoroutine(FadeIn());
             startTime = Time.time;
 
-            if (debugMode) Debug.Log("[TrainingHUD] HUD shown");
+            Debug.Log("[TrainingHUD] HUD shown successfully");
         }
 
         public void Hide()
