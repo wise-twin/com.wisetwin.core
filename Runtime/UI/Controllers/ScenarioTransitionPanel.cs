@@ -81,8 +81,9 @@ namespace WiseTwin
                 uiDocument = gameObject.AddComponent<UIDocument>();
             }
             uiDocument.visualTreeAsset = null;
+            uiDocument.sortingOrder = 95; // Au-dessus de ContentDisplayManager (90), en dessous de TrainingHUD (100)
 
-            Debug.Log($"[ScenarioTransitionPanel] SetupUIDocument - PanelSettings: {(uiDocument.panelSettings != null ? uiDocument.panelSettings.name : "NULL")}");
+            Debug.Log($"[ScenarioTransitionPanel] SetupUIDocument - PanelSettings: {(uiDocument.panelSettings != null ? uiDocument.panelSettings.name : "NULL")}, sortingOrder: 95");
 
             root = uiDocument.rootVisualElement;
             if (root == null)
