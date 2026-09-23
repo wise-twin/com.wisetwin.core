@@ -57,6 +57,19 @@ namespace WiseTwin
             if (uiDocument != null)
             {
                 uiDocument.panelSettings = settings;
+                Debug.Log($"[ScenarioTransitionPanel] PanelSettings set to: {settings?.name}");
+
+                // Re-initialize root element now that we have valid PanelSettings
+                root = uiDocument.rootVisualElement;
+                if (root != null)
+                {
+                    CreatePanel();
+                    Debug.Log("[ScenarioTransitionPanel] Panel recreated after PanelSettings assignment");
+                }
+                else
+                {
+                    Debug.LogError("[ScenarioTransitionPanel] Root still null after setting PanelSettings!");
+                }
             }
         }
 
@@ -69,8 +82,14 @@ namespace WiseTwin
             }
             uiDocument.visualTreeAsset = null;
 
+            Debug.Log($"[ScenarioTransitionPanel] SetupUIDocument - PanelSettings: {(uiDocument.panelSettings != null ? uiDocument.panelSettings.name : "NULL")}");
+
             root = uiDocument.rootVisualElement;
-            if (root == null) return;
+            if (root == null)
+            {
+                Debug.LogError("[ScenarioTransitionPanel] Root visual element is null!");
+                return;
+            }
 
             CreatePanel();
         }
@@ -135,6 +154,8 @@ namespace WiseTwin
 
         public void ShowTransitionPanel(int completedIndex, int totalScenarios, string nextScenarioName = "")
         {
+            Debug.Log($"[ScenarioTransitionPanel] ShowTransitionPanel called - PanelSettings: {(uiDocument?.panelSettings != null ? uiDocument.panelSettings.name : "NULL")}");
+
             titleLabel.text = $"{completedIndex + 1} / {totalScenarios}";
             subtitleLabel.text = nextScenarioName ?? "";
             UIStyles.SetButtonIcon(actionButton, WiseTwinIcons.ArrowRight(22, UIStyles.TextOnAccent));
@@ -170,7 +191,13 @@ namespace WiseTwin
 
         void OnButtonClicked()
         {
-            if (!isVisible) return;
+            Debug.Log("[ScenarioTransitionPanel] Button clicked!");
+            if (!isVisible)
+            {
+                Debug.Log("[ScenarioTransitionPanel] But panel is not visible, ignoring");
+                return;
+            }
+            Debug.Log("[ScenarioTransitionPanel] Invoking OnActionButtonClicked event");
             OnActionButtonClicked?.Invoke();
         }
 

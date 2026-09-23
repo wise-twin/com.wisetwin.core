@@ -54,6 +54,9 @@ namespace WiseTwin.UI
                 InitializeDisplayers();
                 SetupUIDocument();
 
+                // Subscribe to scene changes for DontDestroyOnLoad support
+                UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+
                 if (debugMode) Debug.Log("[ContentDisplayManager] Instance created and initialized");
             }
             else
@@ -63,8 +66,51 @@ namespace WiseTwin.UI
             }
         }
 
+        /// <summary>
+        /// Handle scene changes - refresh UIDocument to ensure proper connection
+        /// </summary>
+        void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            // Skip additive scene loads
+            if (mode == UnityEngine.SceneManagement.LoadSceneMode.Additive) return;
+
+            Debug.Log($"[ContentDisplayManager] OnSceneLoaded: {scene.name}");
+
+            // Re-validate UIDocument root element
+            if (uiDocument != null)
+            {
+                Debug.Log($"[ContentDisplayManager] UIDocument exists, panelSettings: {(uiDocument.panelSettings != null ? uiDocument.panelSettings.name : "NULL")}");
+
+                root = uiDocument.rootVisualElement;
+                if (root == null)
+                {
+                    Debug.LogError("[ContentDisplayManager] Root visual element is null after scene change!");
+                    return;
+                }
+
+                // Reset root configuration
+                root.Clear();
+                root.style.position = Position.Absolute;
+                root.style.width = Length.Percent(100);
+                root.style.height = Length.Percent(100);
+                root.pickingMode = PickingMode.Ignore;
+
+                // Reset state
+                isDisplaying = false;
+                currentDisplayer = null;
+
+                Debug.Log("[ContentDisplayManager] UI refreshed successfully");
+            }
+            else
+            {
+                Debug.LogError("[ContentDisplayManager] UIDocument is null after scene change!");
+            }
+        }
+
         void OnDestroy()
         {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+
             if (Instance == this)
             {
                 Instance = null;

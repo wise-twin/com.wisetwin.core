@@ -110,11 +110,52 @@ public class MetadataLoader : MonoBehaviour
             }
 
             InitializeSceneName();
+
+            // Subscribe to scene change events for DontDestroyOnLoad persistence
+            SceneManager.sceneLoaded += OnSceneLoaded;
         }
         else
         {
             Destroy(gameObject);
         }
+    }
+
+    /// <summary>
+    /// Handle scene changes - reload metadata for the new scene
+    /// </summary>
+    void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        // Skip additive scene loads
+        if (mode == LoadSceneMode.Additive)
+        {
+            Debug.Log($"[MetadataLoader] Skipping additive scene load: {scene.name}");
+            return;
+        }
+
+        // Check if scene actually changed
+        string newSceneName = scene.name;
+        Debug.Log($"[MetadataLoader] OnSceneLoaded called: {newSceneName} (current: {sceneName})");
+
+        if (newSceneName == sceneName)
+        {
+            Debug.Log($"[MetadataLoader] Same scene, skipping reload");
+            return;
+        }
+
+        Debug.Log($"[MetadataLoader] 🔄 Scene changed: {sceneName} → {newSceneName}");
+
+        // Update scene name and reload metadata
+        sceneName = newSceneName;
+
+        // Clear old data
+        loadedMetadata = null;
+        unityData = null;
+        scenarios = null;
+        settings = null;
+        videoTriggers = null;
+
+        // Reload metadata for new scene
+        LoadMetadata();
     }
     
     void InitializeSceneName()
@@ -135,6 +176,8 @@ public class MetadataLoader : MonoBehaviour
     
     void OnDestroy()
     {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+
         if (Instance == this)
         {
             Instance = null;
@@ -159,6 +202,8 @@ public class MetadataLoader : MonoBehaviour
     
     public void LoadMetadata()
     {
+        Debug.Log($"[MetadataLoader] LoadMetadata() called for scene: {sceneName}");
+
         // 1.10.0 — the host page has priority over the baked configuration:
         // the build no longer needs to know its container / API. Works for the
         // SaaS player, the SCORM embed and the standalone SCORM package alike.
@@ -166,7 +211,7 @@ public class MetadataLoader : MonoBehaviour
         if (hostUrl != null)
         {
             IsHostMode = true;
-            DebugLog($"🧩 Host-provided metadata URL: {hostUrl}");
+            Debug.Log($"[MetadataLoader] 🧩 Host-provided metadata URL: {hostUrl}");
             isLoading = true;
             OnLoadStarted?.Invoke();
             StartCoroutine(LoadFromUrl(hostUrl, "Host"));
@@ -174,7 +219,7 @@ public class MetadataLoader : MonoBehaviour
         }
 
         bool useLocalMode = GetUseLocalMode();
-        DebugLog($"🔄 Starting metadata load - Mode: {(useLocalMode ? "Local" : "Production")}");
+        Debug.Log($"[MetadataLoader] 🔄 Starting metadata load - Mode: {(useLocalMode ? "Local" : "Production")}");
 
         isLoading = true;
         OnLoadStarted?.Invoke();
@@ -191,22 +236,26 @@ public class MetadataLoader : MonoBehaviour
     
     IEnumerator LoadLocalMetadata()
     {
-        DebugLog("📂 Chargement des métadonnées locales...");
-        
+        Debug.Log($"[MetadataLoader] 📂 Chargement des métadonnées locales pour: {sceneName}");
+
         string fileName = $"{sceneName}-metadata.json";
         string[] possiblePaths = {
             Path.Combine(Application.streamingAssetsPath, fileName),
             Path.Combine(Application.streamingAssetsPath, "metadata.json"),
             Path.Combine(Application.persistentDataPath, fileName)
         };
-        
+
+        Debug.Log($"[MetadataLoader] Recherche dans: {string.Join(", ", possiblePaths)}");
+
         string foundPath = null;
         foreach (string path in possiblePaths)
         {
-            if (File.Exists(path))
+            bool exists = File.Exists(path);
+            Debug.Log($"[MetadataLoader] Checking {path}: {(exists ? "EXISTS" : "not found")}");
+            if (exists)
             {
                 foundPath = path;
-                DebugLog($"✅ Fichier trouvé: {path}");
+                Debug.Log($"[MetadataLoader] ✅ Using: {path}");
                 break;
             }
         }
@@ -229,8 +278,8 @@ public class MetadataLoader : MonoBehaviour
         }
         else
         {
-            string error = $"❌ Aucun fichier trouvé pour '{sceneName}'";
-            DebugLog(error);
+            string error = $"❌ Aucun fichier metadata trouvé pour '{sceneName}'";
+            Debug.LogError($"[MetadataLoader] {error}");
             isLoading = false;
             OnLoadError?.Invoke(error);
         }

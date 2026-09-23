@@ -51,6 +51,9 @@ namespace WiseTwin
                 {
                     DontDestroyOnLoad(gameObject);
                 }
+
+                // Subscribe to scene changes for DontDestroyOnLoad support
+                SceneManager.sceneLoaded += OnSceneLoaded;
             }
             else
             {
@@ -61,8 +64,52 @@ namespace WiseTwin
             SetupUIDocument();
         }
 
+        /// <summary>
+        /// Handle scene changes - refresh UI to ensure it's properly connected
+        /// </summary>
+        void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            // Skip additive scene loads
+            if (mode == LoadSceneMode.Additive) return;
+
+            Debug.Log($"[TrainingHUD] OnSceneLoaded: {scene.name}");
+
+            // Re-validate UIDocument root element
+            if (uiDocument != null)
+            {
+                Debug.Log($"[TrainingHUD] UIDocument exists, panelSettings: {(uiDocument.panelSettings != null ? uiDocument.panelSettings.name : "NULL")}");
+
+                root = uiDocument.rootVisualElement;
+                if (root == null)
+                {
+                    Debug.LogError("[TrainingHUD] Root visual element is null after scene change!");
+                    return;
+                }
+
+                Debug.Log($"[TrainingHUD] Root element valid, recreating HUD");
+
+                // Recreate HUD to ensure proper element tree
+                CreateHUD();
+
+                // Reset state for new scene
+                isVisible = false;
+                currentProgress = 0;
+                totalObjects = 0;
+                completedObjects.Clear();
+                startTime = Time.time;
+
+                Debug.Log("[TrainingHUD] HUD recreated successfully");
+            }
+            else
+            {
+                Debug.LogError("[TrainingHUD] UIDocument is null after scene change!");
+            }
+        }
+
         void OnDestroy()
         {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+
             if (Instance == this)
             {
                 Instance = null;
@@ -605,9 +652,49 @@ namespace WiseTwin
 
         void ConfirmRestart()
         {
-            if (debugMode) Debug.Log("[TrainingHUD] Restart confirmed - reloading scene");
+            if (debugMode) Debug.Log("[TrainingHUD] Restart confirmed - returning to Bootstrap");
 
-            // La logique de reset complet vit dans WiseTwinManager (réutilisée par WiseTwinAPI).
+            // Essayer d'utiliser GameSceneManager pour retourner au Bootstrap
+            var gameSceneManagerType = System.Type.GetType("WiseTwin.GameSceneManager, WiseTwin.GlobalScripts.Runtime");
+            Debug.Log($"[TrainingHUD] GameSceneManager type found: {gameSceneManagerType != null}");
+
+            if (gameSceneManagerType != null)
+            {
+                var instanceProperty = gameSceneManagerType.GetProperty("Instance",
+                    System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                Debug.Log($"[TrainingHUD] Instance property found: {instanceProperty != null}");
+
+                if (instanceProperty != null)
+                {
+                    var instance = instanceProperty.GetValue(null);
+                    Debug.Log($"[TrainingHUD] Instance value: {instance != null}");
+
+                    if (instance != null)
+                    {
+                        var restartMethod = gameSceneManagerType.GetMethod("RestartGame");
+                        Debug.Log($"[TrainingHUD] RestartGame method found: {restartMethod != null}");
+
+                        if (restartMethod != null)
+                        {
+                            Debug.Log("[TrainingHUD] Calling GameSceneManager.RestartGame()");
+                            restartMethod.Invoke(instance, null);
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Fallback: charger Bootstrap directement si la scène existe
+            if (Application.CanStreamedLevelBeLoaded("Bootstrap"))
+            {
+                if (debugMode) Debug.Log("[TrainingHUD] Loading Bootstrap scene directly");
+                ResetProgressionManager();
+                SceneManager.LoadScene("Bootstrap");
+                return;
+            }
+
+            // Dernier fallback: comportement original (recharger la scène courante)
+            if (debugMode) Debug.Log("[TrainingHUD] Fallback - reloading current scene");
             var wiseTwinManager = WiseTwinManager.Instance;
             if (wiseTwinManager != null)
             {
@@ -615,10 +702,27 @@ namespace WiseTwin
             }
             else
             {
-                // Fallback si le manager n'existe pas : recharger la scène directement.
                 ControlModeSettings.Reset();
                 Destroy(transform.root.gameObject);
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            }
+        }
+
+        void ResetProgressionManager()
+        {
+            // Réinitialiser le ProgressionManager
+            if (ProgressionManager.Instance != null)
+            {
+                var type = typeof(ProgressionManager);
+                var activeField = type.GetField("isProgressionActive",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var indexField = type.GetField("currentScenarioIndex",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+                if (activeField != null) activeField.SetValue(ProgressionManager.Instance, false);
+                if (indexField != null) indexField.SetValue(ProgressionManager.Instance, -1);
+
+                if (debugMode) Debug.Log("[TrainingHUD] ProgressionManager reset");
             }
         }
 

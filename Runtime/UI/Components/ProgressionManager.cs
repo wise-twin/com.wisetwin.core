@@ -94,6 +94,9 @@ namespace WiseTwin
             // Subscribe to content completed event
             contentDisplayManager.OnContentCompleted += HandleContentCompleted;
 
+            // Always subscribe to OnMetadataLoaded for scene changes (DontDestroyOnLoad support)
+            metadataLoader.OnMetadataLoaded += OnMetadataLoaded;
+
             if (resetOnStart)
             {
                 // Wait for metadata to be loaded before starting
@@ -103,8 +106,6 @@ namespace WiseTwin
                 }
                 else
                 {
-                    // Wait for metadata to load
-                    metadataLoader.OnMetadataLoaded += OnMetadataLoaded;
                     if (debugMode) Debug.Log("[ProgressionManager] Waiting for metadata to load...");
                 }
             }
@@ -135,6 +136,25 @@ namespace WiseTwin
 
         void OnMetadataLoaded(Dictionary<string, object> metadata)
         {
+            Debug.Log("[ProgressionManager] OnMetadataLoaded called");
+
+            // Clean up stale references from previous scene
+            if (transitionPanel != null)
+            {
+                transitionPanel.OnActionButtonClicked -= OnTransitionPanelClicked;
+                transitionPanel = null;
+                Debug.Log("[ProgressionManager] Cleaned up old transition panel reference");
+            }
+
+            // Reset state for the new scene
+            currentScenarioIndex = -1;
+            completedScenarioIds.Clear();
+            attemptCounts.Clear();
+            isProgressionActive = false;
+            isWaitingForCompletion = false;
+
+            Debug.Log("[ProgressionManager] State reset - reinitializing progression");
+
             InitializeProgression();
         }
 
@@ -143,6 +163,8 @@ namespace WiseTwin
         /// </summary>
         void InitializeProgression()
         {
+            Debug.Log($"[ProgressionManager] InitializeProgression called, metadataLoader: {metadataLoader != null}, IsLoaded: {metadataLoader?.IsLoaded}");
+
             // Load scenarios from metadata
             scenarios = metadataLoader.GetScenarios();
 
@@ -152,7 +174,11 @@ namespace WiseTwin
                 return;
             }
 
-            if (debugMode) Debug.Log($"[ProgressionManager] Loaded {scenarios.Count} scenarios from metadata");
+            Debug.Log($"[ProgressionManager] Loaded {scenarios.Count} scenarios from metadata");
+            foreach (var s in scenarios)
+            {
+                Debug.Log($"[ProgressionManager]   - Scenario: {s.id} ({s.type})");
+            }
 
             EnsureTransitionPanel();
 
@@ -442,13 +468,18 @@ namespace WiseTwin
         {
             if (transitionPanel != null) return;
 
+            Debug.Log("[ProgressionManager] EnsureTransitionPanel - checking for existing instance");
+
             // Vérifier s'il existe déjà dans la scène
             transitionPanel = ScenarioTransitionPanel.Instance;
             if (transitionPanel != null)
             {
+                Debug.Log("[ProgressionManager] Found existing ScenarioTransitionPanel instance");
                 transitionPanel.OnActionButtonClicked += OnTransitionPanelClicked;
                 return;
             }
+
+            Debug.Log("[ProgressionManager] Creating new ScenarioTransitionPanel");
 
             // Créer le GameObject avec UIDocument
             var panelGO = new GameObject("ScenarioTransitionPanel");
@@ -456,15 +487,21 @@ namespace WiseTwin
 
             // Assigner le PanelSettings depuis le TrainingHUD s'il existe
             var hudDoc = TrainingHUD.Instance?.GetComponent<UIDocument>();
+            Debug.Log($"[ProgressionManager] TrainingHUD.Instance: {TrainingHUD.Instance != null}, hudDoc: {hudDoc != null}, panelSettings: {hudDoc?.panelSettings != null}");
+
             if (hudDoc != null && hudDoc.panelSettings != null)
             {
                 transitionPanel.SetPanelSettings(hudDoc.panelSettings);
-                if (debugMode) Debug.Log("[ProgressionManager] PanelSettings assigned to ScenarioTransitionPanel from TrainingHUD");
+                Debug.Log($"[ProgressionManager] PanelSettings assigned: {hudDoc.panelSettings.name}");
+            }
+            else
+            {
+                Debug.LogWarning("[ProgressionManager] Could not get PanelSettings from TrainingHUD!");
             }
 
             transitionPanel.OnActionButtonClicked += OnTransitionPanelClicked;
 
-            if (debugMode) Debug.Log("[ProgressionManager] ScenarioTransitionPanel created");
+            Debug.Log("[ProgressionManager] ScenarioTransitionPanel created and configured");
         }
 
         /// <summary>
