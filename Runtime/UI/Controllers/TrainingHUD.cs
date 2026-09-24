@@ -11,6 +11,8 @@ namespace WiseTwin
     /// HUD minimaliste pour afficher le timer, la progression et le titre du scénario.
     /// Layout: [restart] [scenario title] [progress bar + timer] [help (?)]
     /// </summary>
+    // Execute EARLY - UI must be ready before ProgressionManager
+    [DefaultExecutionOrder(-50)]
     public class TrainingHUD : MonoBehaviour
     {
         [Header("Configuration")]
@@ -176,7 +178,7 @@ namespace WiseTwin
 
             // Le HUD doit être au-dessus de tous les autres UIDocuments
             // pour que le bouton reset soit toujours cliquable
-            uiDocument.sortingOrder = 100;
+            uiDocument.sortingOrder = 1000;
 
             root = uiDocument.rootVisualElement;
             if (root == null)
@@ -365,11 +367,25 @@ namespace WiseTwin
 
         public void Show()
         {
-            Debug.Log($"[TrainingHUD] Show() called - hudContainer: {(hudContainer != null ? "exists" : "NULL")}");
+            Debug.Log($"[TrainingHUD] Show() called - hudContainer: {(hudContainer != null ? "exists" : "NULL")}, root: {(root != null ? "exists" : "NULL")}");
+
+            // Defensive: recreate HUD if elements are missing
+            if (hudContainer == null || root == null)
+            {
+                Debug.LogWarning("[TrainingHUD] HUD elements missing, recreating...");
+                if (uiDocument != null)
+                {
+                    root = uiDocument.rootVisualElement;
+                    if (root != null)
+                    {
+                        CreateHUD();
+                    }
+                }
+            }
 
             if (hudContainer == null)
             {
-                Debug.LogError("[TrainingHUD] Cannot show - hudContainer is null!");
+                Debug.LogError("[TrainingHUD] Cannot show - hudContainer is still null after recreation!");
                 return;
             }
 

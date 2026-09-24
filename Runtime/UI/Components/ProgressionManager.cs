@@ -11,6 +11,8 @@ namespace WiseTwin
     /// Displays scenarios sequentially from metadata.json and handles completion
     /// NEW SYSTEM: Works directly with metadata scenarios (no more InteractableObjects)
     /// </summary>
+    // Execute LAST - all dependencies (MetadataLoader, ContentDisplayManager, TrainingHUD) must be ready
+    [DefaultExecutionOrder(0)]
     public class ProgressionManager : MonoBehaviour
     {
         [Header("Configuration")]
@@ -30,6 +32,7 @@ namespace WiseTwin
         private Dictionary<string, int> attemptCounts = new Dictionary<string, int>();
         private bool isProgressionActive = false;
         private bool isWaitingForCompletion = false;
+        private bool isInitializing = false; // Guard against multiple simultaneous initializations
 
         // References
         private MetadataLoader metadataLoader;
@@ -77,13 +80,16 @@ namespace WiseTwin
         }
 
         /// <summary>
-        /// Handle scene changes - clean up references, metadata reload will reinitialize
+        /// Handle scene changes - just reset state, MetadataLoader will reload and trigger OnMetadataLoaded
         /// </summary>
         void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
         {
             if (mode == UnityEngine.SceneManagement.LoadSceneMode.Additive) return;
 
-            Debug.Log($"[ProgressionManager] OnSceneLoaded: {scene.name} - cleaning up for new scene");
+            Debug.Log($"[ProgressionManager] OnSceneLoaded: {scene.name} - resetting state");
+
+            // Reset initialization guard
+            isInitializing = false;
 
             // Clean up destroyed transition panel reference
             if (transitionPanel != null)
@@ -92,8 +98,8 @@ namespace WiseTwin
                 transitionPanel = null;
             }
 
-            // MetadataLoader will reload metadata and trigger OnMetadataLoaded
-            // which will reinitialize the progression for the new scene
+            // MetadataLoader will reload metadata and fire OnMetadataLoaded
+            // which will call InitializeProgression with fresh state
         }
 
         void Start()
@@ -114,11 +120,15 @@ namespace WiseTwin
                 return;
             }
 
-            // Subscribe to content completed event
-            contentDisplayManager.OnContentCompleted += HandleContentCompleted;
+            // Unsubscribe first to prevent duplicate subscriptions
+            contentDisplayManager.OnContentCompleted -= HandleContentCompleted;
+            metadataLoader.OnMetadataLoaded -= OnMetadataLoaded;
 
-            // Always subscribe to OnMetadataLoaded for scene changes (DontDestroyOnLoad support)
+            // Subscribe to events
+            contentDisplayManager.OnContentCompleted += HandleContentCompleted;
             metadataLoader.OnMetadataLoaded += OnMetadataLoaded;
+
+            Debug.Log("[ProgressionManager] Event subscriptions established");
 
             if (resetOnStart)
             {
@@ -161,25 +171,30 @@ namespace WiseTwin
 
         void OnMetadataLoaded(Dictionary<string, object> metadata)
         {
-            Debug.Log("[ProgressionManager] OnMetadataLoaded called");
+            Debug.Log($"[ProgressionManager] OnMetadataLoaded called - {metadata?.Count ?? 0} keys");
 
-            // Clean up stale references from previous scene
-            if (transitionPanel != null)
-            {
-                transitionPanel.OnActionButtonClicked -= OnTransitionPanelClicked;
-                transitionPanel = null;
-                Debug.Log("[ProgressionManager] Cleaned up old transition panel reference");
-            }
-
-            // Reset state for the new scene
+            // Reset state before initialization
             currentScenarioIndex = -1;
             completedScenarioIds.Clear();
             attemptCounts.Clear();
             isProgressionActive = false;
             isWaitingForCompletion = false;
 
-            Debug.Log("[ProgressionManager] State reset - reinitializing progression");
+            // Clean up old transition panel
+            if (transitionPanel != null)
+            {
+                transitionPanel.OnActionButtonClicked -= OnTransitionPanelClicked;
+                transitionPanel = null;
+            }
 
+            // Delay one frame to ensure all UI components have processed scene change
+            StartCoroutine(DelayedInitialization());
+        }
+
+        private System.Collections.IEnumerator DelayedInitialization()
+        {
+            yield return null; // Wait one frame for UI to be ready
+            Debug.Log("[ProgressionManager] DelayedInitialization - starting now");
             InitializeProgression();
         }
 
@@ -188,36 +203,46 @@ namespace WiseTwin
         /// </summary>
         void InitializeProgression()
         {
-            Debug.Log($"[ProgressionManager] InitializeProgression called, metadataLoader: {metadataLoader != null}, IsLoaded: {metadataLoader?.IsLoaded}");
+            // Guard against multiple simultaneous initializations
+            if (isInitializing)
+            {
+                Debug.LogWarning("[ProgressionManager] InitializeProgression already in progress, skipping");
+                return;
+            }
+
+            isInitializing = true;
+
+            string currentScene = metadataLoader?.SceneName ?? "unknown";
+            Debug.Log($"[ProgressionManager] InitializeProgression for scene: {currentScene}");
 
             // Load scenarios from metadata
             scenarios = metadataLoader.GetScenarios();
 
             if (scenarios == null || scenarios.Count == 0)
             {
-                Debug.LogError("[ProgressionManager] No scenarios found in metadata!");
+                Debug.Log($"[ProgressionManager] No scenarios in metadata for '{currentScene}'");
+                isInitializing = false;
                 return;
             }
 
-            Debug.Log($"[ProgressionManager] Loaded {scenarios.Count} scenarios from metadata");
+            Debug.Log($"[ProgressionManager] Loaded {scenarios.Count} scenarios");
             foreach (var s in scenarios)
             {
-                Debug.Log($"[ProgressionManager]   - Scenario: {s.id} ({s.type})");
+                Debug.Log($"[ProgressionManager]   - {s.id} ({s.type})");
             }
 
             EnsureTransitionPanel();
 
             if (autoStartFirstScenario)
             {
-                // Plus d'écran d'accueil/tutoriel Unity : l'intro (présentation de
-                // la formation) est désormais affichée côté SaaS. On enchaîne
-                // directement sur le premier scénario.
                 StartTrainingDirectly();
             }
             else
             {
                 if (debugMode) Debug.Log("[ProgressionManager] Waiting for external trigger");
             }
+
+            isInitializing = false; // Initialization complete
         }
 
         /// <summary>
@@ -386,6 +411,13 @@ namespace WiseTwin
 
             // Trigger event
             OnScenarioCompleted?.Invoke(currentScenarioIndex, currentScenario, success);
+
+            // Check if progression was stopped by an external handler (like BootstrapLoader for scene transitions)
+            if (!isProgressionActive)
+            {
+                Debug.Log("[ProgressionManager] Progression stopped by external handler, skipping completion");
+                return;
+            }
 
             // Check if this was the last scenario
             if (currentScenarioIndex >= scenarios.Count - 1)

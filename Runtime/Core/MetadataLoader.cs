@@ -9,6 +9,8 @@ using UnityEngine.Networking;
 using UnityEngine.SceneManagement;
 using WiseTwin;
 
+// Execute FIRST - loads metadata before other components initialize
+[DefaultExecutionOrder(-100)]
 public class MetadataLoader : MonoBehaviour
 {
     [Header("🌐 Configuration (managed by WiseTwinManager)")]
@@ -94,6 +96,36 @@ public class MetadataLoader : MonoBehaviour
     public TrainingSettings GetSettings() => settings;
     public int GetScenarioCount() => scenarios?.Count ?? 0;
     public bool HasScenarios() => scenarios != null && scenarios.Count > 0;
+
+    /// <summary>
+    /// Get scenarios filtered for a specific scene.
+    /// Returns scenarios where scene property matches OR scene is null/empty (global scenarios).
+    /// </summary>
+    public List<ScenarioData> GetScenariosForScene(string targetScene)
+    {
+        if (scenarios == null) return new List<ScenarioData>();
+
+        var filtered = new List<ScenarioData>();
+        foreach (var scenario in scenarios)
+        {
+            // Include if: no scene specified (global) OR scene matches target
+            if (string.IsNullOrEmpty(scenario.scene) || scenario.scene == targetScene)
+            {
+                filtered.Add(scenario);
+            }
+        }
+
+        Debug.Log($"[MetadataLoader] GetScenariosForScene({targetScene}): {filtered.Count}/{scenarios.Count} scenarios");
+        return filtered;
+    }
+
+    /// <summary>
+    /// Get scenarios for the current active scene
+    /// </summary>
+    public List<ScenarioData> GetScenariosForCurrentScene()
+    {
+        return GetScenariosForScene(sceneName);
+    }
     public List<object> GetVideoTriggers() => videoTriggers;
     public bool HasVideoTriggers() => videoTriggers != null && videoTriggers.Count > 0;
     
@@ -126,34 +158,22 @@ public class MetadataLoader : MonoBehaviour
     void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         // Skip additive scene loads
-        if (mode == LoadSceneMode.Additive)
-        {
-            Debug.Log($"[MetadataLoader] Skipping additive scene load: {scene.name}");
-            return;
-        }
+        if (mode == LoadSceneMode.Additive) return;
 
         string newSceneName = scene.name;
-        Debug.Log($"[MetadataLoader] OnSceneLoaded: {newSceneName} (current: {sceneName})");
-
-        if (newSceneName == sceneName)
-        {
-            Debug.Log($"[MetadataLoader] Same scene, skipping reload");
-            return;
-        }
+        if (newSceneName == sceneName) return;
 
         Debug.Log($"[MetadataLoader] 🔄 Scene changed: {sceneName} → {newSceneName}");
-
-        // Update scene name
         sceneName = newSceneName;
 
-        // Clear old data
+        // Clear old data and reload for new scene
         loadedMetadata = null;
         unityData = null;
         scenarios = null;
         settings = null;
         videoTriggers = null;
+        isLoading = false; // Reset loading flag
 
-        // Reload metadata for new scene
         LoadMetadata();
     }
     
@@ -202,6 +222,13 @@ public class MetadataLoader : MonoBehaviour
     public void LoadMetadata()
     {
         Debug.Log($"[MetadataLoader] LoadMetadata() called for scene: {sceneName}");
+
+        // Guard against duplicate simultaneous loads
+        if (isLoading)
+        {
+            Debug.LogWarning($"[MetadataLoader] Already loading metadata, skipping duplicate call");
+            return;
+        }
 
         // 1.10.0 — the host page has priority over the baked configuration:
         // the build no longer needs to know its container / API. Works for the
@@ -258,7 +285,7 @@ public class MetadataLoader : MonoBehaviour
                 break;
             }
         }
-        
+
         if (foundPath != null)
         {
             try
@@ -602,6 +629,8 @@ public class MetadataLoader : MonoBehaviour
             }
 
             // Notifier le succès
+            int subscriberCount = OnMetadataLoaded?.GetInvocationList()?.Length ?? 0;
+            Debug.Log($"[MetadataLoader] Firing OnMetadataLoaded event to {subscriberCount} subscribers");
             OnMetadataLoaded?.Invoke(loadedMetadata);
         }
         catch (System.Exception e)

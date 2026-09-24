@@ -17,6 +17,9 @@ namespace WiseTwin
         [JsonProperty("type")]
         public string type; // "question", "procedure", "text"
 
+        [JsonProperty("scene")]
+        public string scene; // Target scene name (null = all scenes)
+
         [JsonProperty("question")]
         public JObject question;
 

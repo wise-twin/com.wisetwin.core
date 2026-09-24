@@ -11,6 +11,8 @@ namespace WiseTwin.UI
     /// Gestionnaire principal pour afficher différents types de contenu
     /// Détermine quel afficheur utiliser selon le type de contenu
     /// </summary>
+    // Execute EARLY - UI must be ready before ProgressionManager
+    [DefaultExecutionOrder(-50)]
     public class ContentDisplayManager : MonoBehaviour
     {
         [Header("Configuration")]
@@ -82,7 +84,7 @@ namespace WiseTwin.UI
                 Debug.Log($"[ContentDisplayManager] UIDocument exists, panelSettings: {(uiDocument.panelSettings != null ? uiDocument.panelSettings.name : "NULL")}");
 
                 // Ensure sorting order is maintained after scene change
-                uiDocument.sortingOrder = 90;
+                uiDocument.sortingOrder = 500;
 
                 root = uiDocument.rootVisualElement;
                 if (root == null)
@@ -102,7 +104,7 @@ namespace WiseTwin.UI
                 isDisplaying = false;
                 currentDisplayer = null;
 
-                Debug.Log("[ContentDisplayManager] UI refreshed successfully (sortingOrder: 90)");
+                Debug.Log("[ContentDisplayManager] UI refreshed successfully (sortingOrder: 500)");
             }
             else
             {
@@ -156,7 +158,7 @@ namespace WiseTwin.UI
 
             // ContentDisplayManager UI doit être au-dessus de l'UI de la scène
             // mais en dessous du TrainingHUD (sortingOrder 100) pour que le bouton restart reste accessible
-            uiDocument.sortingOrder = 90;
+            uiDocument.sortingOrder = 500;
 
             // Vérifier qu'on ne partage pas le UIDocument avec un autre composant
             var otherUIUsers = GetComponents<MonoBehaviour>()

@@ -64,8 +64,8 @@ namespace WiseTwin.UI
                 }
             }
 
-            // Must render above the TrainingHUD (sortingOrder 100) so the backdrop + card cover it.
-            uiDocument.sortingOrder = 200;
+            // Must render above the TrainingHUD (sortingOrder 1000) so the backdrop + card cover it.
+            uiDocument.sortingOrder = 2000;
 
             rootElement = uiDocument.rootVisualElement;
 
