@@ -65,12 +65,35 @@ namespace WiseTwin
                 {
                     DontDestroyOnLoad(gameObject);
                 }
+
+                // Subscribe to scene changes
+                UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
             }
             else
             {
                 Destroy(gameObject);
                 return;
             }
+        }
+
+        /// <summary>
+        /// Handle scene changes - clean up references, metadata reload will reinitialize
+        /// </summary>
+        void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            if (mode == UnityEngine.SceneManagement.LoadSceneMode.Additive) return;
+
+            Debug.Log($"[ProgressionManager] OnSceneLoaded: {scene.name} - cleaning up for new scene");
+
+            // Clean up destroyed transition panel reference
+            if (transitionPanel != null)
+            {
+                transitionPanel.OnActionButtonClicked -= OnTransitionPanelClicked;
+                transitionPanel = null;
+            }
+
+            // MetadataLoader will reload metadata and trigger OnMetadataLoaded
+            // which will reinitialize the progression for the new scene
         }
 
         void Start()
@@ -113,6 +136,8 @@ namespace WiseTwin
 
         void OnDestroy()
         {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+
             if (contentDisplayManager != null)
             {
                 contentDisplayManager.OnContentCompleted -= HandleContentCompleted;

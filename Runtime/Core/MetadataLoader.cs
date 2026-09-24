@@ -132,9 +132,8 @@ public class MetadataLoader : MonoBehaviour
             return;
         }
 
-        // Check if scene actually changed
         string newSceneName = scene.name;
-        Debug.Log($"[MetadataLoader] OnSceneLoaded called: {newSceneName} (current: {sceneName})");
+        Debug.Log($"[MetadataLoader] OnSceneLoaded: {newSceneName} (current: {sceneName})");
 
         if (newSceneName == sceneName)
         {
@@ -144,7 +143,7 @@ public class MetadataLoader : MonoBehaviour
 
         Debug.Log($"[MetadataLoader] 🔄 Scene changed: {sceneName} → {newSceneName}");
 
-        // Update scene name and reload metadata
+        // Update scene name
         sceneName = newSceneName;
 
         // Clear old data
