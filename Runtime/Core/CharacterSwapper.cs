@@ -53,7 +53,7 @@ namespace WiseTwin
         {
             firstPersonCharacter = GetComponent<FirstPersonCharacter>();
 
-            if (characterModels == null || characterModels.Length == 0)
+            if (characterModels == null || characterModels.Length ==0)
             {
                 DebugLog("No character models configured.");
                 return;
