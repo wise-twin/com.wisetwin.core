@@ -34,6 +34,11 @@ namespace WiseTwin
         private bool isWaitingForCompletion = false;
         private bool isInitializing = false; // Guard against multiple simultaneous initializations
 
+        // Formation multi-scènes : position de la scène courante dans la formation, pour
+        // afficher une progression globale (0 / TotalScenarios pour une formation classique).
+        private int formationScenarioOffset = 0;
+        private int formationScenarioTotal = 0;
+
         // References
         private MetadataLoader metadataLoader;
         private ContentDisplayManager contentDisplayManager;
@@ -47,10 +52,20 @@ namespace WiseTwin
         public event Action<int, ScenarioData, bool> OnScenarioCompleted; // index, scenario, success
         public event Action OnAllScenariosCompleted;
         public event Action OnProgressionReset;
+        /// <summary>
+        /// Raised when every scenario of the current scene is done (arg: scene name). In a
+        /// multi-scene training this is where a scene loader chains to the next scene; it is
+        /// followed by OnAllScenariosCompleted only for the last scene that has scenarios.
+        /// </summary>
+        public event Action<string> OnSceneScenariosCompleted;
 
         // Public properties
         public int CurrentScenarioIndex => currentScenarioIndex;
         public int TotalScenarios => scenarios?.Count ?? 0;
+        /// <summary>Scenarios of the previous scenes of a multi-scene training (0 otherwise).</summary>
+        public int FormationScenarioOffset => formationScenarioOffset;
+        /// <summary>Scenarios of the whole training (= TotalScenarios for a single-scene one).</summary>
+        public int FormationTotalScenarios => formationScenarioTotal > 0 ? formationScenarioTotal : TotalScenarios;
         public bool IsProgressionActive => isProgressionActive;
         public bool IsWaitingForCompletion => isWaitingForCompletion;
         public float ProgressPercentage => TotalScenarios > 0 ? (float)(currentScenarioIndex + 1) / TotalScenarios * 100f : 0f;
@@ -215,8 +230,21 @@ namespace WiseTwin
             string currentScene = metadataLoader?.SceneName ?? "unknown";
             Debug.Log($"[ProgressionManager] InitializeProgression for scene: {currentScene}");
 
-            // Load scenarios from metadata
-            scenarios = metadataLoader.GetScenarios();
+            // Load scenarios from metadata. Formation multi-scènes : seulement ceux de la
+            // scène courante, positionnés dans la progression globale de la formation.
+            if (metadataLoader.IsMultiScene)
+            {
+                scenarios = metadataLoader.GetScenariosOfScene(currentScene);
+                formationScenarioOffset = metadataLoader.GetFormationScenarioCountBefore(currentScene);
+                formationScenarioTotal = metadataLoader.GetFormationScenarioCount();
+                Debug.Log($"[ProgressionManager] Multi-scene training - scene '{currentScene}': {scenarios.Count} scenario(s), formation progress {formationScenarioOffset}/{formationScenarioTotal}");
+            }
+            else
+            {
+                scenarios = metadataLoader.GetScenarios();
+                formationScenarioOffset = 0;
+                formationScenarioTotal = 0;
+            }
 
             if (scenarios == null || scenarios.Count == 0)
             {
@@ -295,10 +323,11 @@ namespace WiseTwin
 
             if (debugMode) Debug.Log("[ProgressionManager] Progression started");
 
-            // Reset HUD progress
+            // Reset HUD progress (formation multi-scènes : on repart des scénarios déjà faits
+            // dans les scènes précédentes)
             if (TrainingHUD.Instance != null)
             {
-                TrainingHUD.Instance.UpdateProgress(0);
+                TrainingHUD.Instance.UpdateProgress(formationScenarioOffset);
             }
 
             EnsureTransitionPanel();
@@ -452,8 +481,9 @@ namespace WiseTwin
                 {
                     int nextIndex = currentScenarioIndex + 1;
                     string nextScenarioName = (nextIndex >= 0 && nextIndex < scenarios.Count) ? scenarios[nextIndex].id : "";
-                    transitionPanel.ShowTransitionPanel(currentScenarioIndex, scenarios.Count, nextScenarioName);
-                    if (debugMode) Debug.Log($"[ProgressionManager] Showing transition panel: scenario {currentScenarioIndex + 1}/{scenarios.Count} → {nextScenarioName}");
+                    int formationIndex = formationScenarioOffset + currentScenarioIndex;
+                    transitionPanel.ShowTransitionPanel(formationIndex, FormationTotalScenarios, nextScenarioName);
+                    if (debugMode) Debug.Log($"[ProgressionManager] Showing transition panel: scenario {formationIndex + 1}/{FormationTotalScenarios} → {nextScenarioName}");
                 }
             }
         }
@@ -465,6 +495,23 @@ namespace WiseTwin
         {
             isProgressionActive = false;
             isWaitingForCompletion = false;
+
+            string currentScene = metadataLoader?.SceneName;
+            OnSceneScenariosCompleted?.Invoke(currentScene);
+            WiseTwinAPI.RaiseSceneScenariosCompleted(currentScene);
+
+            // Formation multi-scènes : la fin des scénarios d'une scène qui n'est pas la
+            // dernière ne termine pas la formation (pas d'écran de fin, pas de notification
+            // à l'hôte). La scène suivante est chargée par la logique de la formation.
+            if (metadataLoader != null && !metadataLoader.IsFinalScenarioScene(currentScene))
+            {
+                Debug.Log($"[ProgressionManager] Scenarios of scene '{currentScene}' completed - training continues in the next scene");
+                if (TrainingHUD.Instance != null)
+                {
+                    TrainingHUD.Instance.OnScenarioCompleted();
+                }
+                return;
+            }
 
             if (debugMode) Debug.Log("[ProgressionManager] All scenarios completed!");
 

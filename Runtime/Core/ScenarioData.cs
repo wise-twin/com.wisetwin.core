@@ -18,7 +18,7 @@ namespace WiseTwin
         public string type; // "question", "procedure", "text"
 
         [JsonProperty("scene")]
-        public string scene; // Target scene name (null = all scenes)
+        public string scene; // Target scene name (null = all scenes). Multi-scene training ("scenes" in metadata): the scene that plays it, required
 
         [JsonProperty("question")]
         public JObject question;

@@ -36,10 +36,14 @@ namespace WiseTwin
 
         // State
         private float startTime;
+        private bool timerStarted = false;
         private int currentProgress = 0;
         private int totalObjects = 0;
         private bool isVisible = false;
         private HashSet<string> completedObjects = new HashSet<string>();
+
+        // Formation multi-scènes : le chrono (HUD + écran de fin) couvre toute la formation
+        bool KeepTimerAcrossScenes => MetadataLoader.Instance != null && MetadataLoader.Instance.IsMultiScene;
 
         // Singleton
         public static TrainingHUD Instance { get; private set; }
@@ -98,7 +102,10 @@ namespace WiseTwin
                 currentProgress = 0;
                 totalObjects = 0;
                 completedObjects.Clear();
-                startTime = Time.time;
+                if (!KeepTimerAcrossScenes)
+                {
+                    startTime = Time.time;
+                }
 
                 Debug.Log("[TrainingHUD] HUD recreated successfully");
             }
@@ -392,7 +399,11 @@ namespace WiseTwin
             isVisible = true;
             hudContainer.style.display = DisplayStyle.Flex;
             StartCoroutine(FadeIn());
-            startTime = Time.time;
+            if (!KeepTimerAcrossScenes || !timerStarted)
+            {
+                startTime = Time.time;
+                timerStarted = true;
+            }
 
             Debug.Log("[TrainingHUD] HUD shown successfully");
         }
@@ -633,7 +644,8 @@ namespace WiseTwin
         {
             if (ProgressionManager.Instance != null)
             {
-                int totalScenarios = ProgressionManager.Instance.TotalScenarios;
+                // Formation multi-scènes : total de la formation, pas seulement de la scène
+                int totalScenarios = ProgressionManager.Instance.FormationTotalScenarios;
                 SetTotalObjects(totalScenarios);
 
                 if (debugMode) Debug.Log($"[TrainingHUD] Initialized for {totalScenarios} scenarios");

@@ -528,7 +528,7 @@ void Awake() {
 
 ## Known Quirks
 
-1. Metadata loader uses active scene name for file lookup - scenes must have proper names
+1. Metadata loader uses active scene name for file lookup - scenes must have proper names. Multi-scene trainings (metadata with a `scenes` list) keep the startup scene's file for the whole session and filter scenarios by their `scene` field
 2. Language changes may require manual UI refresh in some displayers
 3. Analytics data is in-memory only - export before long sessions
 4. Multiple WiseTwinManager instances across scenes: earlier ones destroy themselves

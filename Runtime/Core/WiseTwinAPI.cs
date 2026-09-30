@@ -35,6 +35,13 @@ namespace WiseTwin
         /// <summary>Fires when a scenario begins. Args: scenarioIndex, scenario.</summary>
         public static event Action<int, ScenarioData> OnScenarioStarted;
 
+        /// <summary>
+        /// Fires when every scenario of the current scene is done. Arg: scene name. In a
+        /// multi-scene training, a scene loader listens to it to chain to the next scene; the
+        /// training itself only completes after the last scene that has scenarios.
+        /// </summary>
+        public static event Action<string> OnSceneScenariosCompleted;
+
         /// <summary>Fires when the entire training is completed (CompleteTraining was called).</summary>
         public static event Action OnTrainingCompleted;
 
@@ -55,6 +62,7 @@ namespace WiseTwin
         internal static void RaiseStepValidated(int stepIndex, bool success) => OnStepValidated?.Invoke(stepIndex, success);
         internal static void RaiseScoreChanged(float newScore) => OnScoreChanged?.Invoke(newScore);
         internal static void RaiseScenarioStarted(int index, ScenarioData scenario) => OnScenarioStarted?.Invoke(index, scenario);
+        internal static void RaiseSceneScenariosCompleted(string sceneName) => OnSceneScenariosCompleted?.Invoke(sceneName);
         internal static void RaiseTrainingCompleted() => OnTrainingCompleted?.Invoke();
         internal static void RaiseTrainingRestarted() => OnTrainingRestarted?.Invoke();
         internal static void RaiseCustomEventLogged(string eventId, bool success, float weight, string description) => OnCustomEventLogged?.Invoke(eventId, success, weight, description);

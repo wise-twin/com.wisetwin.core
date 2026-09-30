@@ -53,6 +53,14 @@ public class MetadataLoader : MonoBehaviour
     private TrainingSettings settings;
     private List<object> videoTriggers; // Video trigger configurations
     private bool isLoading = false;
+
+    // Formation multi-scènes (1.11.0) : liste ordonnée des scènes déclarée dans les
+    // metadata ("scenes"). Null pour une formation classique à une scène.
+    private List<string> formationScenes;
+    // Scène dont le nom sert à trouver les metadata (fichier local, buildName legacy) :
+    // la scène courante, sauf pour une formation multi-scènes où l'on garde la scène
+    // de départ pendant toute la session.
+    private string metadataSourceScene;
     
     // Singleton
     public static MetadataLoader Instance { get; private set; }
@@ -126,6 +134,81 @@ public class MetadataLoader : MonoBehaviour
     {
         return GetScenariosForScene(sceneName);
     }
+
+    /// <summary>
+    /// True when the metadata describe a multi-scene training (non-empty "scenes" list):
+    /// one metadata file for the whole training, kept across scene changes, each scene
+    /// playing only the scenarios whose "scene" field matches it.
+    /// </summary>
+    public bool IsMultiScene => formationScenes != null && formationScenes.Count > 0;
+
+    /// <summary>Ordered scenes of a multi-scene training, or null for a single-scene one.</summary>
+    public IReadOnlyList<string> FormationScenes => formationScenes;
+
+    /// <summary>
+    /// Scenarios of one scene of a multi-scene training: exact match on the "scene" field
+    /// (unlike GetScenariosForScene, scenarios without scene are NOT included).
+    /// </summary>
+    public List<ScenarioData> GetScenariosOfScene(string targetScene)
+    {
+        var result = new List<ScenarioData>();
+        if (scenarios == null || string.IsNullOrEmpty(targetScene)) return result;
+
+        foreach (var scenario in scenarios)
+        {
+            if (scenario.scene == targetScene) result.Add(scenario);
+        }
+        return result;
+    }
+
+    /// <summary>Number of scenarios played over the whole multi-scene training.</summary>
+    public int GetFormationScenarioCount()
+    {
+        if (!IsMultiScene) return GetScenarioCount();
+
+        int count = 0;
+        foreach (var scene in formationScenes)
+        {
+            count += GetScenariosOfScene(scene).Count;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// Number of scenarios in the scenes listed before targetScene (multi-scene training).
+    /// Used to show a progression over the whole training rather than per scene.
+    /// </summary>
+    public int GetFormationScenarioCountBefore(string targetScene)
+    {
+        if (!IsMultiScene) return 0;
+
+        int count = 0;
+        foreach (var scene in formationScenes)
+        {
+            if (scene == targetScene) return count;
+            count += GetScenariosOfScene(scene).Count;
+        }
+        return 0; // Scène hors liste : pas de décalage
+    }
+
+    /// <summary>
+    /// True when targetScene is the last scene of the training that has scenarios: finishing
+    /// its scenarios finishes the training (completion screen + notification to the host).
+    /// Always true for a single-scene training.
+    /// </summary>
+    public bool IsFinalScenarioScene(string targetScene)
+    {
+        if (!IsMultiScene) return true;
+
+        for (int i = formationScenes.Count - 1; i >= 0; i--)
+        {
+            if (GetScenariosOfScene(formationScenes[i]).Count > 0)
+            {
+                return formationScenes[i] == targetScene;
+            }
+        }
+        return true; // Aucun scénario nulle part : rien ne bloque la complétion
+    }
     public List<object> GetVideoTriggers() => videoTriggers;
     public bool HasVideoTriggers() => videoTriggers != null && videoTriggers.Count > 0;
     
@@ -165,6 +248,16 @@ public class MetadataLoader : MonoBehaviour
 
         Debug.Log($"[MetadataLoader] 🔄 Scene changed: {sceneName} → {newSceneName}");
         sceneName = newSceneName;
+
+        // Formation multi-scènes : un seul fichier de metadata pour toute la formation.
+        // On le garde et on renotifie les abonnés pour qu'ils préparent la nouvelle scène
+        // (même séquence d'événements qu'un rechargement).
+        if (IsMultiScene)
+        {
+            Debug.Log($"[MetadataLoader] 🧩 Multi-scene training - keeping metadata, {GetScenariosOfScene(sceneName).Count} scenario(s) for '{sceneName}'");
+            OnMetadataLoaded?.Invoke(loadedMetadata);
+            return;
+        }
 
         // Clear old data and reload for new scene
         loadedMetadata = null;
@@ -230,6 +323,13 @@ public class MetadataLoader : MonoBehaviour
             return;
         }
 
+        // Une formation multi-scènes déjà chargée (ReloadMetadata) se recharge depuis sa
+        // scène de départ, pas depuis la scène courante.
+        if (!IsMultiScene || string.IsNullOrEmpty(metadataSourceScene))
+        {
+            metadataSourceScene = sceneName;
+        }
+
         // 1.10.0 — the host page has priority over the baked configuration:
         // the build no longer needs to know its container / API. Works for the
         // SaaS player, the SCORM embed and the standalone SCORM package alike.
@@ -262,9 +362,9 @@ public class MetadataLoader : MonoBehaviour
     
     IEnumerator LoadLocalMetadata()
     {
-        Debug.Log($"[MetadataLoader] 📂 Chargement des métadonnées locales pour: {sceneName}");
+        Debug.Log($"[MetadataLoader] 📂 Chargement des métadonnées locales pour: {metadataSourceScene}");
 
-        string fileName = $"{sceneName}-metadata.json";
+        string fileName = $"{metadataSourceScene}-metadata.json";
         string[] possiblePaths = {
             Path.Combine(Application.streamingAssetsPath, fileName),
             Path.Combine(Application.streamingAssetsPath, "metadata.json"),
@@ -304,7 +404,7 @@ public class MetadataLoader : MonoBehaviour
         }
         else
         {
-            string error = $"❌ Aucun fichier metadata trouvé pour '{sceneName}'";
+            string error = $"❌ Aucun fichier metadata trouvé pour '{metadataSourceScene}'";
             Debug.LogError($"[MetadataLoader] {error}");
             isLoading = false;
             OnLoadError?.Invoke(error);
@@ -388,7 +488,7 @@ public class MetadataLoader : MonoBehaviour
 
         // Construction de l'URL Azure Storage
         // Format: https://storage.blob.core.windows.net/container/buildType/projectName-metadata.json
-        string fileName = $"{sceneName}-metadata.json";
+        string fileName = $"{metadataSourceScene}-metadata.json";
         string url = $"{azureStorageUrl.TrimEnd('/')}/{containerId}/{buildType}/{fileName}";
 
         DebugLog($"📡 Azure Storage URL: {url}");
@@ -543,8 +643,8 @@ public class MetadataLoader : MonoBehaviour
         string url = apiBaseUrl;
         List<string> parameters = new List<string>();
         
-        if (!string.IsNullOrEmpty(sceneName))
-            parameters.Add($"buildName={UnityWebRequest.EscapeURL(sceneName)}");
+        if (!string.IsNullOrEmpty(metadataSourceScene))
+            parameters.Add($"buildName={UnityWebRequest.EscapeURL(metadataSourceScene)}");
         
         if (!string.IsNullOrEmpty(buildType))
             parameters.Add($"buildType={UnityWebRequest.EscapeURL(buildType)}");
@@ -599,6 +699,8 @@ public class MetadataLoader : MonoBehaviour
                 scenarios = new List<ScenarioData>();
             }
 
+            ExtractFormationScenes();
+
             unityData = new Dictionary<string, object>();
 
             // Extract video triggers
@@ -641,6 +743,40 @@ public class MetadataLoader : MonoBehaviour
         }
     }
     
+    /// <summary>
+    /// Formation multi-scènes : lit la liste ordonnée "scenes" et signale les scénarios qui
+    /// ne seront jamais joués (champ "scene" absent ou hors liste).
+    /// </summary>
+    void ExtractFormationScenes()
+    {
+        formationScenes = null;
+        if (!loadedMetadata.ContainsKey("scenes")) return;
+
+        var declared = JsonConvert.DeserializeObject<List<string>>(JsonConvert.SerializeObject(loadedMetadata["scenes"]));
+        if (declared == null) return;
+
+        formationScenes = new List<string>();
+        foreach (var scene in declared)
+        {
+            if (!string.IsNullOrEmpty(scene)) formationScenes.Add(scene);
+        }
+        if (formationScenes.Count == 0)
+        {
+            formationScenes = null;
+            return;
+        }
+
+        Debug.Log($"[MetadataLoader] 🧩 Multi-scene training: {string.Join(" → ", formationScenes)} ({GetFormationScenarioCount()} scenario(s))");
+
+        foreach (var scenario in scenarios)
+        {
+            if (string.IsNullOrEmpty(scenario.scene) || !formationScenes.Contains(scenario.scene))
+            {
+                Debug.LogWarning($"[MetadataLoader] ⚠️ Scenario '{scenario.id}' has scene '{scenario.scene}' which is not in 'scenes' - it will never be played");
+            }
+        }
+    }
+
     // API publique simple pour récupérer les données d'un objet
     public Dictionary<string, object> GetDataForObject(string objectId)
     {

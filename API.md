@@ -161,6 +161,7 @@ All events are static and can be subscribed to from anywhere. Remember to unsubs
 | `OnStepValidated`                      | `(int stepIndex, bool success)` | A procedure step is validated (success or fail)    |
 | `OnScoreChanged`                       | `(float newScore)`            | The cumulative score changes (0-100)                |
 | `OnScenarioStarted`                    | `(int index, ScenarioData scenario)` | A scenario begins                            |
+| `OnSceneScenariosCompleted`            | `(string sceneName)`          | Every scenario of the current scene is done. In a multi-scene training, chain to the next scene here; the training only completes after the last scene that has scenarios |
 | `OnTrainingCompleted`                  | `()`                          | The training ends (`CompleteTraining` was called)   |
 | `OnTrainingRestarted`                  | `()`                          | The training is reset (`RestartTraining` was called), just before the scene reloads |
 | `OnCustomEventLogged`                  | `(string eventId, bool success, float weight, string description)` | `LogCustomEvent` was called |

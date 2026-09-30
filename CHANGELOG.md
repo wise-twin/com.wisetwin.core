@@ -5,6 +5,14 @@ All notable changes to the WiseTwin Core Package will be documented in this file
 ## [Unreleased]
 
 ### Added
+- **Multi-scene trainings (runtime)** — one training can now span several Unity scenes with **a single metadata file** (the SaaS and SCORM only know one `metadata.json` per build). The metadata declare the ordered scenes and each scenario its scene:
+  ```json
+  "scenes": ["Bootstrap", "PersonnageConfigurator", "Environnement"],
+  "scenarios": [ { "id": "…", "scene": "Bootstrap", "type": "text", … }, … ]
+  ```
+  - `MetadataLoader` keeps this file across scene changes (no reload) and re-fires `OnMetadataLoaded` so each scene sets itself up. In local mode the file is the startup scene's `{scene}-metadata.json`. New API: `IsMultiScene`, `FormationScenes`, `GetScenariosOfScene()`, `GetFormationScenarioCount()`, `GetFormationScenarioCountBefore()`, `IsFinalScenarioScene()`. Scenarios whose `scene` is missing or not listed are reported (they are never played).
+  - `ProgressionManager` plays only the current scene's scenarios. Finishing them raises the new `OnSceneScenariosCompleted(scene)` (also `WiseTwinAPI.OnSceneScenariosCompleted`); the completion screen and the notification to the host only happen after the **last scene that has scenarios**.
+  - The HUD progress, the transition panel numbering and the timer cover the whole training (`FormationScenarioOffset`, `FormationTotalScenarios`).
 - **`ProgressionManager.StopProgression()`** — public way for an external scene loader (e.g. globalscripts' `BootstrapLoader`) to stop the progression after a given scenario without completing the training. Replaces writing the private `isProgressionActive` field by reflection.
 - **`WiseTwinManager.StartupSceneBuildIndex`** — build index of the scene that contained the `WiseTwinSystem` at launch.
 
@@ -13,8 +21,8 @@ All notable changes to the WiseTwin Core Package will be documented in this file
 - **HUD restart button kept the previous analytics session** in projects using globalscripts' `GameSceneManager`: the button called `GameSceneManager.RestartGame()` by reflection, which reloaded `Bootstrap` without destroying the `WiseTwinSystem`, so the interactions of the first attempt were sent together with the second. The button now always goes through `WiseTwinManager.RestartTraining()` (fresh session). The reflection lookup of `GameSceneManager` and the hardcoded `"Bootstrap"` fallback are removed from `TrainingHUD`.
 
 ### Migration
-- Single-scene trainings: no change (the startup scene is the active scene).
-- Multi-scene trainings: restart now always goes back to the first scene of the training, with a fresh analytics session.
+- Single-scene trainings: no change (no `scenes` list in the metadata → previous behavior; the startup scene is the active scene).
+- Multi-scene trainings: restart now always goes back to the first scene of the training, with a fresh analytics session. Declare `scenes` + a `scene` on every scenario to get a single-file training (requires host mode, package ≥ 1.10.0, for the SaaS).
 
 ## [1.10.0] - 2026-09-15
 
