@@ -2,7 +2,7 @@
 
 All notable changes to the WiseTwin Core Package will be documented in this file.
 
-## [Unreleased]
+## [1.11.0] - 2026-09-30
 
 ### Added
 - **Multi-scene trainings (runtime)** — one training can now span several Unity scenes with **a single metadata file** (the SaaS and SCORM only know one `metadata.json` per build). The metadata declare the ordered scenes and each scenario its scene:
