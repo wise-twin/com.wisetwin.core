@@ -201,7 +201,9 @@ public class WiseTwinEditor : EditorWindow
     
     void LoadExistingJSONContent()
     {
-        string targetFileName = $"{data.sceneId}-metadata.json";
+        DetectMultiSceneTraining();
+
+        string targetFileName = $"{data.MetadataFileScene}-metadata.json";
 
         // Possible paths to search for JSON file
         string[] possiblePaths = {
@@ -224,6 +226,11 @@ public class WiseTwinEditor : EditorWindow
             try
             {
                 string jsonContent = File.ReadAllText(foundPath);
+                // Repartir d'une liste vide : un fichier sans scénarios ne doit pas garder
+                // ceux du fichier chargé précédemment (Reload, changement de scène)
+                data.scenarios.Clear();
+                data.videoTriggers.Clear();
+                data.selectedScenarioIndex = -1;
                 ParseExistingJSON(jsonContent);
                 data.currentLoadedFile = Path.GetFileName(foundPath);
                 data.hasLoadedExistingJSON = true;
@@ -241,6 +248,229 @@ public class WiseTwinEditor : EditorWindow
         }
     }
     
+    // ============================================================
+    // Formation multi-scènes
+    // ============================================================
+
+    /// <summary>Name of the first enabled scene of the Build Settings (the training's startup scene).</summary>
+    static string GetStartupSceneName()
+    {
+        foreach (var buildScene in EditorBuildSettings.scenes)
+        {
+            if (buildScene.enabled) return Path.GetFileNameWithoutExtension(buildScene.path);
+        }
+        return null;
+    }
+
+    static List<string> GetEnabledBuildSceneNames()
+    {
+        var names = new List<string>();
+        foreach (var buildScene in EditorBuildSettings.scenes)
+        {
+            if (buildScene.enabled) names.Add(Path.GetFileNameWithoutExtension(buildScene.path));
+        }
+        return names;
+    }
+
+    static string GetMetadataPath(string sceneName) =>
+        Path.Combine(Application.streamingAssetsPath, $"{sceneName}-metadata.json");
+
+    /// <summary>"scenes" list of a metadata file, or null when absent / empty / unreadable.</summary>
+    static List<string> ReadFormationScenes(string path)
+    {
+        if (!File.Exists(path)) return null;
+        try
+        {
+            var scenes = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(path))["scenes"] as Newtonsoft.Json.Linq.JArray;
+            var list = scenes?.ToObject<List<string>>()?.Where(s => !string.IsNullOrEmpty(s)).ToList();
+            return list != null && list.Count > 0 ? list : null;
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning($"[WiseTwin] Could not read 'scenes' from {path}: {e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The open scene belongs to a multi-scene training when the startup scene's metadata file
+    /// lists it in "scenes": the editor then works on that single file.
+    /// </summary>
+    void DetectMultiSceneTraining()
+    {
+        data.isMultiScene = false;
+        data.formationScenes = new List<string>();
+        data.formationFileScene = "";
+
+        string startupScene = GetStartupSceneName();
+        if (string.IsNullOrEmpty(startupScene)) return;
+
+        var scenes = ReadFormationScenes(GetMetadataPath(startupScene));
+        if (scenes != null && scenes.Contains(data.sceneId))
+        {
+            data.isMultiScene = true;
+            data.formationScenes = scenes;
+            data.formationFileScene = startupScene;
+        }
+    }
+
+    /// <summary>
+    /// Follow the scene opened in the editor. Within the same multi-scene training the file is
+    /// already loaded: only the displayed scenarios change and unsaved edits are kept.
+    /// </summary>
+    void SwitchToActiveScene()
+    {
+        string activeScene = SceneManager.GetActiveScene().name;
+        if (data.isMultiScene && data.formationScenes.Contains(activeScene))
+        {
+            data.sceneId = activeScene;
+            data.selectedScenarioIndex = -1;
+            return;
+        }
+
+        InitializeSceneId();
+        LoadExistingJSONContent();
+    }
+
+    /// <summary>
+    /// Convert the project into a multi-scene training: the startup scene's file gets the
+    /// "scenes" list (enabled Build Settings scenes) and the scenarios / video triggers of the
+    /// existing per-scene files, each scenario tagged with its scene. Ids are made unique across
+    /// the file. Works on the JSON files directly so no field is lost.
+    /// </summary>
+    void ConvertToMultiSceneTraining()
+    {
+        string startupScene = GetStartupSceneName();
+        var scenes = GetEnabledBuildSceneNames();
+        if (string.IsNullOrEmpty(startupScene) || scenes.Count < 2)
+        {
+            EditorUtility.DisplayDialog("Formation multi-scènes",
+                "Ajoutez d'abord les scènes de la formation dans File > Build Settings (au moins 2 scènes activées, la première étant la scène de départ).",
+                "OK");
+            return;
+        }
+
+        var existingFiles = scenes.Where(s => File.Exists(GetMetadataPath(s))).Select(s => $"{s}-metadata.json").ToList();
+        if (!scenes.Contains(data.sceneId))
+        {
+            EditorUtility.DisplayDialog("Formation multi-scènes",
+                $"La scène ouverte ({data.sceneId}) n'est pas activée dans File > Build Settings.",
+                "OK");
+            return;
+        }
+        if (!EditorUtility.DisplayDialog("Convertir en formation multi-scènes",
+                $"Fichier de la formation : {startupScene}-metadata.json\n" +
+                $"Scènes : {string.Join(" → ", scenes)}\n\n" +
+                $"Les scénarios des fichiers existants ({(existingFiles.Count > 0 ? string.Join(", ", existingFiles) : "aucun")}) y seront regroupés, chacun rattaché à sa scène.\n\n" +
+                "Les modifications non sauvegardées (Generate Metadata) de la scène ouverte seront perdues.",
+                "Convertir", "Annuler"))
+        {
+            return;
+        }
+
+        string formationPath = GetMetadataPath(startupScene);
+        Newtonsoft.Json.Linq.JObject formation;
+        if (File.Exists(formationPath))
+        {
+            formation = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(formationPath));
+        }
+        else
+        {
+            formation = Newtonsoft.Json.Linq.JObject.FromObject(GenerateCompleteMetadata());
+            formation["id"] = startupScene;
+        }
+
+        var mergedScenarios = new Newtonsoft.Json.Linq.JArray();
+        var mergedTriggers = new Newtonsoft.Json.Linq.JArray();
+        var takenIds = new HashSet<string>();
+        var renamed = new List<string>();
+
+        // Formation déjà multi-scènes (ajout d'une scène) : ses scènes ont déjà été regroupées,
+        // on ne reprend que les fichiers des scènes nouvelles
+        var alreadyMerged = (formation["scenes"] as Newtonsoft.Json.Linq.JArray)?.ToObject<List<string>>() ?? new List<string>();
+
+        foreach (var scene in scenes)
+        {
+            string path = GetMetadataPath(scene);
+            if (!File.Exists(path)) continue;
+            if (scene != startupScene && alreadyMerged.Contains(scene)) continue;
+
+            var root = scene == startupScene ? formation : Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(path));
+
+            if (root["scenarios"] is Newtonsoft.Json.Linq.JArray sceneScenarios)
+            {
+                foreach (var token in sceneScenarios.OfType<Newtonsoft.Json.Linq.JObject>())
+                {
+                    var scenario = (Newtonsoft.Json.Linq.JObject)token.DeepClone();
+                    if (string.IsNullOrEmpty(scenario["scene"]?.ToString()))
+                    {
+                        scenario["scene"] = scene;
+                    }
+
+                    string id = scenario["id"]?.ToString();
+                    string uniqueId = WiseTwin.Editor.WiseTwinEditorData.MakeUniqueId(id, takenIds);
+                    if (uniqueId != id)
+                    {
+                        renamed.Add($"{scene} : {id} → {uniqueId}");
+                        scenario["id"] = uniqueId;
+                    }
+                    takenIds.Add(uniqueId);
+                    mergedScenarios.Add(scenario);
+                }
+            }
+
+            if (root["videoTriggers"] is Newtonsoft.Json.Linq.JArray sceneTriggers)
+            {
+                foreach (var trigger in sceneTriggers)
+                {
+                    if (!mergedTriggers.Any(t => Newtonsoft.Json.Linq.JToken.DeepEquals(t, trigger)))
+                        mergedTriggers.Add(trigger.DeepClone());
+                }
+            }
+        }
+
+        formation["scenes"] = new Newtonsoft.Json.Linq.JArray(scenes);
+        formation["scenarios"] = mergedScenarios;
+        if (mergedTriggers.Count > 0) formation["videoTriggers"] = mergedTriggers;
+
+        // Placer "scenes" juste avant "scenarios" pour la lisibilité du fichier
+        var scenesProp = formation.Property("scenes");
+        var scenariosProp = formation.Property("scenarios");
+        scenesProp.Remove();
+        scenariosProp.AddBeforeSelf(scenesProp);
+
+        Directory.CreateDirectory(Application.streamingAssetsPath);
+        File.WriteAllText(formationPath, formation.ToString(Formatting.Indented));
+        AssetDatabase.Refresh();
+
+        LoadExistingJSONContent();
+
+        var obsoleteFiles = existingFiles.Where(f => f != $"{startupScene}-metadata.json").ToList();
+        EditorUtility.DisplayDialog("Formation multi-scènes",
+            $"✅ {mergedScenarios.Count} scénario(s) regroupé(s) dans {startupScene}-metadata.json.\n" +
+            (renamed.Count > 0 ? $"\nIds renommés pour rester uniques :\n{string.Join("\n", renamed)}\n" : "") +
+            (obsoleteFiles.Count > 0 ? $"\nCes fichiers ne sont plus utilisés, vous pouvez les supprimer :\n{string.Join("\n", obsoleteFiles)}" : ""),
+            "OK");
+    }
+
+    /// <summary>Replace the scenes list with the enabled Build Settings scenes (saved with Generate Metadata).</summary>
+    void ResyncFormationScenes()
+    {
+        var scenes = GetEnabledBuildSceneNames();
+        var orphans = data.scenarios.Where(s => !scenes.Contains(s.scene)).Select(s => $"{s.id} ({s.scene})").ToList();
+        if (orphans.Count > 0 && !EditorUtility.DisplayDialog("Scènes de la formation",
+                $"Ces scénarios appartiennent à des scènes absentes des Build Settings et ne seront plus joués :\n{string.Join("\n", orphans)}\n\nContinuer ?",
+                "Continuer", "Annuler"))
+        {
+            return;
+        }
+
+        data.formationScenes = scenes;
+        EditorUtility.DisplayDialog("Scènes de la formation",
+            $"Scènes : {string.Join(" → ", scenes)}\n\nCliquez sur Generate Metadata pour enregistrer.",
+            "OK");
+    }
+
     void ParseExistingJSON(string jsonContent)
     {
         try
@@ -373,6 +603,9 @@ public class WiseTwinEditor : EditorWindow
                     if (Enum.TryParse<WiseTwin.Editor.ScenarioType>(typeStr, true, out var type))
                         scenario.type = type;
                 }
+
+                if (scenarioDict.ContainsKey("scene"))
+                    scenario.scene = scenarioDict["scene"]?.ToString() ?? "";
 
                 // Load content based on type
                 switch (scenario.type)
@@ -938,8 +1171,55 @@ public class WiseTwinEditor : EditorWindow
         {
             EditorGUILayout.LabelField("ℹ️ No JSON file found. Creating new content.", EditorStyles.helpBox);
         }
+
+        DrawMultiSceneInfo();
+
         EditorGUILayout.EndVertical();
         EditorGUILayout.Space();
+    }
+
+    void DrawMultiSceneInfo()
+    {
+        // L'éditeur ne suit pas tout seul la scène ouverte : le signaler
+        string activeScene = SceneManager.GetActiveScene().name;
+        if (!string.IsNullOrEmpty(activeScene) && activeScene != data.sceneId)
+        {
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.HelpBox($"La scène ouverte est « {activeScene} », l'éditeur affiche « {data.sceneId} ».", MessageType.Warning);
+            if (GUILayout.Button($"Passer à {activeScene}", GUILayout.Width(160), GUILayout.Height(38)))
+            {
+                SwitchToActiveScene();
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+
+        if (data.isMultiScene)
+        {
+            var counts = data.formationScenes.Select(s => $"{s} ({data.scenarios.Count(sc => sc.scene == s)})");
+            EditorGUILayout.HelpBox(
+                $"🧩 Formation multi-scènes — fichier unique : {data.formationFileScene}-metadata.json\n" +
+                $"Scènes (scénarios) : {string.Join(" → ", counts)}\n" +
+                $"Seuls les scénarios de « {data.sceneId} » sont affichés et modifiés ici.",
+                MessageType.Info);
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("🔄 Scènes depuis les Build Settings", GUILayout.Width(230)))
+            {
+                ResyncFormationScenes();
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+        else if (GetEnabledBuildSceneNames().Count >= 2)
+        {
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("🧩 Convertir en formation multi-scènes…", GUILayout.Width(260)))
+            {
+                ConvertToMultiSceneTraining();
+            }
+            EditorGUILayout.EndHorizontal();
+        }
     }
     
     void DrawTabs()
@@ -980,7 +1260,7 @@ public class WiseTwinEditor : EditorWindow
     {
         var metadata = new FormationMetadataComplete
         {
-            id = data.sceneId,
+            id = data.MetadataFileScene,
             title = data.projectTitle,
             description = data.projectDescription,
             version = data.projectVersion,
@@ -1013,6 +1293,12 @@ public class WiseTwinEditor : EditorWindow
         {
             Debug.LogError($"Error parsing Unity content: {e.Message}");
             metadata.unity = new Dictionary<string, Dictionary<string, object>>();
+        }
+
+        // Formation multi-scènes : liste ordonnée des scènes couvertes par ce fichier
+        if (data.isMultiScene)
+        {
+            metadata.scenes = new List<string>(data.formationScenes);
         }
 
         // 🎯 NEW: Convert scenarios to JSON format
@@ -1062,17 +1348,38 @@ public class WiseTwinEditor : EditorWindow
         return videoTriggersJSON;
     }
 
+    /// <summary>
+    /// Scenarios in file order. Multi-scene training: grouped by scene following the "scenes"
+    /// order (stable, so the order inside a scene is kept).
+    /// </summary>
+    IEnumerable<WiseTwin.Editor.ScenarioConfiguration> GetScenariosInFileOrder()
+    {
+        if (!data.isMultiScene) return data.scenarios;
+
+        return data.scenarios.OrderBy(s =>
+        {
+            int index = data.formationScenes.IndexOf(s.scene);
+            return index >= 0 ? index : int.MaxValue;
+        });
+    }
+
     List<object> ConvertScenariosToJSON()
     {
         var scenariosJSON = new List<object>();
 
-        foreach (var scenario in data.scenarios)
+        foreach (var scenario in GetScenariosInFileOrder())
         {
             var scenarioDict = new Dictionary<string, object>
             {
                 ["id"] = scenario.id,
                 ["type"] = scenario.type.ToString().ToLower()
             };
+
+            // Formation multi-scènes : scène qui joue ce scénario
+            if (!string.IsNullOrEmpty(scenario.scene))
+            {
+                scenarioDict["scene"] = scenario.scene;
+            }
 
             // Add content based on type
             switch (scenario.type)
@@ -1432,10 +1739,22 @@ public class WiseTwinEditor : EditorWindow
             Directory.CreateDirectory(streamingAssetsPath);
         }
 
+        // Le SaaS rattache les analytics au scénario par son id : des doublons mélangeraient
+        // leurs statistiques (fréquent quand une formation regroupe plusieurs scènes)
+        var duplicateIds = data.scenarios.GroupBy(s => s.id).Where(g => g.Count() > 1)
+            .Select(g => data.isMultiScene ? $"{g.Key} ({string.Join(", ", g.Select(s => s.scene))})" : g.Key).ToList();
+        if (duplicateIds.Count > 0 && !EditorUtility.DisplayDialog("Ids de scénarios en double",
+                $"Plusieurs scénarios partagent le même id :\n{string.Join("\n", duplicateIds)}\n\n" +
+                "Les statistiques du SaaS les confondront. Renommez-les dans Scenario Configuration.",
+                "Enregistrer quand même", "Annuler"))
+        {
+            return;
+        }
+
         var metadata = GenerateCompleteMetadata();
         string json = JsonConvert.SerializeObject(metadata, Formatting.Indented);
 
-        string fileName = $"{data.sceneId}-metadata.json";
+        string fileName = $"{data.MetadataFileScene}-metadata.json";
         string fullPath = Path.Combine(streamingAssetsPath, fileName);
 
         File.WriteAllText(fullPath, json);
@@ -1465,7 +1784,7 @@ public class WiseTwinEditor : EditorWindow
         }
 
         // Construire l'URL avec les paramètres
-        string url = $"{data.azureApiUrl}?buildName={UnityEngine.Networking.UnityWebRequest.EscapeURL(data.sceneId)}" +
+        string url = $"{data.azureApiUrl}?buildName={UnityEngine.Networking.UnityWebRequest.EscapeURL(data.MetadataFileScene)}" +
                      $"&buildType={UnityEngine.Networking.UnityWebRequest.EscapeURL(data.buildType)}" +
                      $"&containerId={UnityEngine.Networking.UnityWebRequest.EscapeURL(data.containerId)}";
 
@@ -1510,7 +1829,7 @@ public class WiseTwinEditor : EditorWindow
                         Directory.CreateDirectory(streamingAssetsPath);
                     }
 
-                    string fileName = $"{data.sceneId}-metadata.json";
+                    string fileName = $"{data.MetadataFileScene}-metadata.json";
                     string filePath = Path.Combine(streamingAssetsPath, fileName);
 
                     File.WriteAllText(filePath, metadataJson);
@@ -1518,6 +1837,10 @@ public class WiseTwinEditor : EditorWindow
                     EditorUtility.DisplayProgressBar("Downloading Metadata", "Saved to StreamingAssets!", 1f);
 
                     AssetDatabase.Refresh();
+
+                    // Afficher le contenu téléchargé (sinon un Generate Metadata l'écraserait
+                    // avec l'ancien contenu de l'éditeur)
+                    LoadExistingJSONContent();
 
                     Debug.Log($"✅ Metadata downloaded and saved to: {filePath}");
 

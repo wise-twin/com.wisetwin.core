@@ -13,6 +13,16 @@ All notable changes to the WiseTwin Core Package will be documented in this file
   - `MetadataLoader` keeps this file across scene changes (no reload) and re-fires `OnMetadataLoaded` so each scene sets itself up. In local mode the file is the startup scene's `{scene}-metadata.json`. New API: `IsMultiScene`, `FormationScenes`, `GetScenariosOfScene()`, `GetFormationScenarioCount()`, `GetFormationScenarioCountBefore()`, `IsFinalScenarioScene()`. Scenarios whose `scene` is missing or not listed are reported (they are never played).
   - `ProgressionManager` plays only the current scene's scenarios. Finishing them raises the new `OnSceneScenariosCompleted(scene)` (also `WiseTwinAPI.OnSceneScenariosCompleted`); the completion screen and the notification to the host only happen after the **last scene that has scenarios**.
   - The HUD progress, the transition panel numbering and the timer cover the whole training (`FormationScenarioOffset`, `FormationTotalScenarios`).
+- **Multi-scene trainings (WiseTwin Editor)** — the training is edited directly in its single file, no merge / split step:
+  - **🧩 Convertir en formation multi-scènes…** (header box, when the Build Settings have ≥ 2 enabled scenes) writes the `scenes` list into the startup scene's file and merges the scenarios / video triggers of the existing per-scene files into it, each scenario tagged with its scene and ids made unique.
+  - When the open scene belongs to a multi-scene training, the editor loads the training's file and the Scenario Configuration tab only shows / edits that scene's scenarios (new scenarios get the scene automatically). Generate Metadata writes the training's file. To bring back edits made in the SaaS, save its `metadata.json` over that file.
+  - The header warns when the open scene differs from the edited one (**Passer à …** button) and can resync the scenes with the Build Settings.
+  - Generate Metadata asks for confirmation when two scenarios share an id (the SaaS resolves statistics by scenario id). New / duplicated scenarios get a unique id.
+  - `WiseTwinBuildProcessor` warns about scenes missing from the Build Settings, scenarios that will never be played and duplicate ids.
+
+### Changed
+- **WiseTwin Editor** — Reload now replaces the displayed scenarios with the file's (a file without scenarios used to keep the previous ones).
+- **`WiseTwinBuildProcessor`** looks for the startup scene's metadata with its exact name (it lowercased it, which only worked on case-insensitive file systems).
 - **`ProgressionManager.StopProgression()`** — public way for an external scene loader (e.g. globalscripts' `BootstrapLoader`) to stop the progression after a given scenario without completing the training. Replaces writing the private `isProgressionActive` field by reflection.
 - **`WiseTwinManager.StartupSceneBuildIndex`** — build index of the scene that contained the `WiseTwinSystem` at launch.
 

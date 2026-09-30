@@ -21,7 +21,9 @@ namespace WiseTwin.Editor
             EditorGUI.BeginDisabledGroup(true);
             EditorGUILayout.TextField("Scene Name", data.sceneId);
             EditorGUI.EndDisabledGroup();
-            EditorGUILayout.HelpBox($"Metadata will be saved as: {data.sceneId}-metadata.json", MessageType.Info);
+            EditorGUILayout.HelpBox(data.isMultiScene
+                ? $"Metadata will be saved as: {data.MetadataFileScene}-metadata.json (single file of the multi-scene training)"
+                : $"Metadata will be saved as: {data.MetadataFileScene}-metadata.json", MessageType.Info);
 
             // Title
             EditorGUILayout.Space(5);

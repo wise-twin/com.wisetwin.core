@@ -31,6 +31,11 @@ public class FormationMetadataComplete
     public string updatedAt;
     public Dictionary<string, Dictionary<string, object>> unity;
 
+    // Formation multi-scènes (1.11.0) : scènes ordonnées couvertes par ce fichier unique.
+    // Omis pour une formation classique à une scène.
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public List<string> scenes;
+
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public List<object> scenarios;
 

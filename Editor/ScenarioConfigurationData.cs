@@ -33,6 +33,8 @@ namespace WiseTwin.Editor
     {
         public string id = "scenario_1";
         public ScenarioType type = ScenarioType.Question;
+        // Formation multi-scènes : scène qui joue ce scénario (vide pour une formation à une scène)
+        public string scene = "";
 
         public List<QuestionScenarioData> questions = new List<QuestionScenarioData>();
         public ProcedureScenarioData procedureData = new ProcedureScenarioData();

@@ -130,25 +130,37 @@ namespace WiseTwin.Editor
 
             EditorGUILayout.Space(4);
 
-            if (data.scenarios.Count == 0)
+            // Formation multi-scènes : data.scenarios contient toute la formation, on n'affiche
+            // que les scénarios de la scène ouverte (indices dans la liste complète)
+            var visible = new List<int>();
+            for (int i = 0; i < data.scenarios.Count; i++)
             {
-                EditorGUILayout.HelpBox("No scenarios yet. Click '+ Add Scenario' to get started.", MessageType.Info);
+                if (data.IsScenarioOfCurrentScene(data.scenarios[i])) visible.Add(i);
+            }
+
+            if (visible.Count == 0)
+            {
+                EditorGUILayout.HelpBox(data.isMultiScene
+                    ? $"No scenarios in scene '{data.sceneId}' yet. Click '+ Add Scenario' to add one to this scene."
+                    : "No scenarios yet. Click '+ Add Scenario' to get started.", MessageType.Info);
                 return;
             }
 
             // Scenario list
-            EditorGUILayout.LabelField($"Scenarios ({data.scenarios.Count})", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField(data.isMultiScene
+                ? $"Scenarios of scene '{data.sceneId}' ({visible.Count} / {data.scenarios.Count} in the training)"
+                : $"Scenarios ({data.scenarios.Count})", EditorStyles.boldLabel);
             EditorGUILayout.Space(2);
 
-            for (int i = 0; i < data.scenarios.Count; i++)
+            for (int v = 0; v < visible.Count; v++)
             {
-                DrawScenarioListItem(data, i);
+                DrawScenarioListItem(data, visible, v);
             }
 
             EditorGUILayout.Space(8);
 
             // Edit selected scenario
-            if (data.selectedScenarioIndex >= 0 && data.selectedScenarioIndex < data.scenarios.Count)
+            if (visible.Contains(data.selectedScenarioIndex))
             {
                 DrawSeparator();
                 EditorGUILayout.Space(4);
@@ -160,7 +172,13 @@ namespace WiseTwin.Editor
         {
             var scenario = new ScenarioConfiguration();
             scenario.type = type;
-            scenario.id = $"scenario_{data.scenarios.Count + 1}";
+            scenario.scene = data.isMultiScene ? data.sceneId : "";
+
+            // Id unique dans tout le fichier (toutes scènes confondues)
+            int number = data.scenarios.Count(s => data.IsScenarioOfCurrentScene(s)) + 1;
+            while (data.scenarios.Any(s => s.id == $"scenario_{number}")) number++;
+            scenario.id = $"scenario_{number}";
+
             data.scenarios.Add(scenario);
             data.selectedScenarioIndex = data.scenarios.Count - 1;
         }
@@ -179,8 +197,9 @@ namespace WiseTwin.Editor
             }
         }
 
-        private static void DrawScenarioListItem(WiseTwinEditorData data, int index)
+        private static void DrawScenarioListItem(WiseTwinEditorData data, List<int> visible, int position)
         {
+            int index = visible[position]; // Index dans la liste complète
             var scenario = data.scenarios[index];
             bool isSelected = (data.selectedScenarioIndex == index);
             Color typeColor = GetTypeColor(scenario.type);
@@ -195,19 +214,19 @@ namespace WiseTwin.Editor
             GUILayout.Box("", GUILayout.Width(4), GUILayout.Height(28));
             GUI.backgroundColor = prevBg;
 
-            // Move up
-            GUI.enabled = index > 0;
+            // Move up (au sein des scénarios affichés)
+            GUI.enabled = position > 0;
             if (GUILayout.Button("^", GUILayout.Width(22), GUILayout.Height(28)))
             {
-                SwapScenarios(data, index, index - 1);
+                SwapScenarios(data, index, visible[position - 1]);
             }
             GUI.enabled = true;
 
             // Move down
-            GUI.enabled = index < data.scenarios.Count - 1;
+            GUI.enabled = position < visible.Count - 1;
             if (GUILayout.Button("v", GUILayout.Width(22), GUILayout.Height(28)))
             {
-                SwapScenarios(data, index, index + 1);
+                SwapScenarios(data, index, visible[position + 1]);
             }
             GUI.enabled = true;
 
@@ -217,8 +236,8 @@ namespace WiseTwin.Editor
             // Build label
             string typeTag = $"[{scenario.type}]";
             string label = isSelected
-                ? $"  {index + 1}. {scenario.id}  {typeTag}  {summary}"
-                : $"  {index + 1}. {scenario.id}  {typeTag}  {summary}";
+                ? $"  {position + 1}. {scenario.id}  {typeTag}  {summary}"
+                : $"  {position + 1}. {scenario.id}  {typeTag}  {summary}";
 
             GUIStyle btnStyle = new GUIStyle(GUI.skin.button);
             btnStyle.alignment = TextAnchor.MiddleLeft;
@@ -270,7 +289,7 @@ namespace WiseTwin.Editor
             var original = data.scenarios[index];
             string json = Newtonsoft.Json.JsonConvert.SerializeObject(original);
             var copy = Newtonsoft.Json.JsonConvert.DeserializeObject<ScenarioConfiguration>(json);
-            copy.id = original.id + "_copy";
+            copy.id = data.MakeUniqueScenarioId(original.id + "_copy");
             data.scenarios.Insert(index + 1, copy);
             data.selectedScenarioIndex = index + 1;
         }
@@ -299,7 +318,20 @@ namespace WiseTwin.Editor
 
             // Basic info
             scenario.id = EditorGUILayout.TextField("Scenario ID", scenario.id);
+            var sameId = data.scenarios.FirstOrDefault(s => s != scenario && s.id == scenario.id);
+            if (sameId != null)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Id already used by another scenario{(data.isMultiScene ? $" (scene '{sameId.scene}')" : "")}: the SaaS statistics would mix them.",
+                    MessageType.Warning);
+            }
             scenario.type = (ScenarioType)EditorGUILayout.EnumPopup("Type", scenario.type);
+            if (data.isMultiScene)
+            {
+                EditorGUI.BeginDisabledGroup(true);
+                EditorGUILayout.TextField("Scene", scenario.scene);
+                EditorGUI.EndDisabledGroup();
+            }
 
             EditorGUILayout.EndVertical();
             EditorGUILayout.Space(4);
@@ -1051,6 +1083,7 @@ namespace WiseTwin.Editor
                 }
 
                 int importedCount = 0;
+                int firstImportedIndex = targetData.scenarios.Count;
                 foreach (var scenarioObj in scenariosJSON)
                 {
                     try
@@ -1135,6 +1168,15 @@ namespace WiseTwin.Editor
                     catch (System.Exception e)
                     {
                         Debug.LogWarning($"[ScenarioImport] Failed to import scenario: {e.Message}");
+                    }
+                }
+
+                // Formation multi-scènes : les scénarios importés appartiennent à la scène ouverte
+                if (targetData.isMultiScene)
+                {
+                    for (int i = firstImportedIndex; i < targetData.scenarios.Count; i++)
+                    {
+                        targetData.scenarios[i].scene = targetData.sceneId;
                     }
                 }
 

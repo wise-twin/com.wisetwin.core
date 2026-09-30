@@ -53,12 +53,53 @@ namespace WiseTwin.Editor
         public List<VideoTriggerConfiguration> videoTriggers = new List<VideoTriggerConfiguration>();
         public int selectedVideoTriggerIndex = -1;
 
+        // ============= MULTI-SCENE TRAINING =============
+        // Formation multi-scènes : un seul fichier de metadata (celui de la première scène des
+        // Build Settings) pour toutes les scènes listées dans "scenes". Chaque scénario porte sa
+        // scène ; l'éditeur n'affiche et ne modifie que ceux de la scène ouverte.
+        public bool isMultiScene = false;
+        public List<string> formationScenes = new List<string>();
+        public string formationFileScene = ""; // Scène dont le fichier contient la formation
+
         // ============= UI STATE =============
         public Vector2 scrollPosition;
         public Vector2 unityContentScrollPosition;
         public bool hasLoadedExistingJSON = false;
         public string currentLoadedFile = "";
         public string sceneId = "";
+
+        /// <summary>Scene whose name prefixes the metadata file ({scene}-metadata.json) and gives its id.</summary>
+        public string MetadataFileScene => isMultiScene ? formationFileScene : sceneId;
+
+        /// <summary>True when the scenario is shown/edited for the open scene (always true for a single-scene training).</summary>
+        public bool IsScenarioOfCurrentScene(ScenarioConfiguration scenario)
+        {
+            return !isMultiScene || scenario.scene == sceneId;
+        }
+
+        /// <summary>
+        /// Returns baseId, or baseId_2, baseId_3... so that no other scenario of the file uses it:
+        /// the SaaS resolves analytics by scenario id, duplicates would mix their statistics.
+        /// </summary>
+        public string MakeUniqueScenarioId(string baseId, ScenarioConfiguration except = null)
+        {
+            var taken = new HashSet<string>();
+            foreach (var s in scenarios)
+            {
+                if (s != except && !string.IsNullOrEmpty(s.id)) taken.Add(s.id);
+            }
+            return MakeUniqueId(baseId, taken);
+        }
+
+        public static string MakeUniqueId(string baseId, HashSet<string> taken)
+        {
+            if (string.IsNullOrEmpty(baseId)) baseId = "scenario";
+            if (!taken.Contains(baseId)) return baseId;
+
+            int suffix = 2;
+            while (taken.Contains($"{baseId}_{suffix}")) suffix++;
+            return $"{baseId}_{suffix}";
+        }
 
         // Difficulty options (en français)
         public readonly string[] difficultyOptions = { "Facile", "Intermédiaire", "Avancé", "Expert" };

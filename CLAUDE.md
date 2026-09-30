@@ -477,7 +477,15 @@ Accessed via `WiseTwin > Dialogue Graph Editor` menu or "Open Graph Editor" butt
 
 ### Bottom Actions
 - **Preview JSON** - Opens preview window with generated JSON
-- **Generate Metadata** - Saves `{sceneName}-metadata.json` to StreamingAssets
+- **Generate Metadata** - Saves `{sceneName}-metadata.json` to StreamingAssets (multi-scene training: the startup scene's file). Asks for confirmation when scenario ids are duplicated
+
+### Multi-scene trainings
+- One metadata file for the whole training: the startup scene's (first enabled Build Settings scene) `{scene}-metadata.json`, with a `scenes` list and a `scene` field on every scenario. Detected when that file lists the open scene in `scenes`
+- **🧩 Convertir en formation multi-scènes…** (header box, shown when ≥ 2 enabled Build Settings scenes): writes `scenes` = enabled Build Settings scenes and merges the scenarios / video triggers of the existing per-scene files into the startup scene's file (JSON-level merge, ids made unique). The per-scene files are no longer used afterwards
+- The Scenario Configuration tab only shows/edits the open scene's scenarios; add / duplicate / reorder / delete act on the full list; new ids are unique across the file
+- The editor does not follow scene changes by itself: the header shows a warning with a **Passer à {scène}** button (same training → no reload, unsaved edits kept)
+- **🔄 Scènes depuis les Build Settings** resyncs the `scenes` list (saved with Generate Metadata)
+- `WiseTwinBuildProcessor` warns (never blocks) about scenes missing from the Build Settings, scenarios never played and duplicate ids
 
 ### Prefab Creation
 - `WiseTwin > Create Validation Zone Prefab` - Creates a zone prefab with trigger collider, visual cylinder, and particle effects
