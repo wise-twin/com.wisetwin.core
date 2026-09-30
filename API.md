@@ -80,7 +80,7 @@ WiseTwinAPI.CompleteTraining("Safety Training Module 1");
 
 #### `RestartTraining() → void`
 
-Fully resets the training and reloads the current scene from scratch — the **same behavior as the red restart button in the HUD, but WITHOUT the confirmation dialog**. All in-memory state (analytics session, scenario progression, UI, player position, control mode) is discarded and re-instantiated fresh by the scene reload. Fires `OnTrainingRestarted` just before the reload.
+Fully resets the training and reloads the **startup scene** (the one that contained the `WiseTwinSystem` at launch: the training scene itself for a single-scene training, the bootstrap scene for a multi-scene one) from scratch — the **same behavior as the red restart button in the HUD, but WITHOUT the confirmation dialog**. All in-memory state (analytics session, scenario progression, UI, player position, control mode) is discarded and re-instantiated fresh by the scene reload. Fires `OnTrainingRestarted` just before the reload.
 
 ```csharp
 WiseTwinAPI.RestartTraining();

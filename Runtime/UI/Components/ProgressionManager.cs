@@ -306,6 +306,18 @@ namespace WiseTwin
         }
 
         /// <summary>
+        /// Stop the progression without completing it: the current scenario does not chain to
+        /// the next one and OnAllScenariosCompleted is not raised. Meant for an external scene
+        /// loader (e.g. BootstrapLoader) that changes scene after a given scenario. Safe to call
+        /// from an OnScenarioCompleted handler.
+        /// </summary>
+        public void StopProgression()
+        {
+            isProgressionActive = false;
+            if (debugMode) Debug.Log("[ProgressionManager] Progression stopped by external caller");
+        }
+
+        /// <summary>
         /// Display the current scenario
         /// </summary>
         void StartCurrentScenario()

@@ -2,6 +2,20 @@
 
 All notable changes to the WiseTwin Core Package will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **`ProgressionManager.StopProgression()`** — public way for an external scene loader (e.g. globalscripts' `BootstrapLoader`) to stop the progression after a given scenario without completing the training. Replaces writing the private `isProgressionActive` field by reflection.
+- **`WiseTwinManager.StartupSceneBuildIndex`** — build index of the scene that contained the `WiseTwinSystem` at launch.
+
+### Fixed
+- **Restart in multi-scene trainings** — `RestartTraining()` now reloads the startup scene instead of the active scene. Before, restarting from a later scene (e.g. `Environnement`) destroyed the `WiseTwinSystem` and reloaded a scene that does not contain one.
+- **HUD restart button kept the previous analytics session** in projects using globalscripts' `GameSceneManager`: the button called `GameSceneManager.RestartGame()` by reflection, which reloaded `Bootstrap` without destroying the `WiseTwinSystem`, so the interactions of the first attempt were sent together with the second. The button now always goes through `WiseTwinManager.RestartTraining()` (fresh session). The reflection lookup of `GameSceneManager` and the hardcoded `"Bootstrap"` fallback are removed from `TrainingHUD`.
+
+### Migration
+- Single-scene trainings: no change (the startup scene is the active scene).
+- Multi-scene trainings: restart now always goes back to the first scene of the training, with a fresh analytics session.
+
 ## [1.10.0] - 2026-09-15
 
 ### Added
