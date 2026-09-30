@@ -83,14 +83,7 @@ namespace WiseTwin.UI
             modalContainer = new VisualElement();
             UIStyles.ApplyBackdropHeavyStyle(modalContainer);
 
-            // Click backdrop to close
-            modalContainer.RegisterCallback<PointerDownEvent>((evt) =>
-            {
-                if (evt.target == modalContainer)
-                {
-                    Close();
-                }
-            });
+            // No backdrop click-to-close: user must click the continue button
 
             // Content card
             var contentBox = new VisualElement();
