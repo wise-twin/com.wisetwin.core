@@ -19,6 +19,7 @@ namespace WiseTwin.Editor
 
             // Indépendant de la scène ouverte : le fichier de la formation est celui de la scène de départ
             ValidateMultiSceneMetadata();
+            ValidateLocalizationUpToDate();
 
             // Trouver le WiseTwinManager dans la scène
             WiseTwinManager manager = Object.FindFirstObjectByType<WiseTwinManager>();
@@ -169,5 +170,31 @@ namespace WiseTwin.Editor
 
             Debug.Log($"[WiseTwin] 🧩 Formation multi-scènes : {count} scénario(s) sur {scenes.Count} scène(s) dans {metadataPath} (à uploader comme metadata.json)");
         }
+        /// <summary>
+        /// Les traductions d'un build viennent du bloc <c>localization</c> du metadata, pas des
+        /// fichiers de langue : prévenir si on a modifié un .json sans refaire Generate Metadata.
+        /// </summary>
+        static void ValidateLocalizationUpToDate()
+        {
+            var scenes = EditorBuildSettings.scenes;
+            var startup = System.Array.Find(scenes, s => s.enabled);
+            if (startup == null) return;
+
+            string metadataPath = $"Assets/StreamingAssets/{System.IO.Path.GetFileNameWithoutExtension(startup.path)}-metadata.json";
+            if (MetadataLocalizationBuilder.IsUpToDate(metadataPath)) return;
+
+            const string message =
+                "Les traductions du metadata ne correspondent plus aux fichiers de langue " +
+                "(StreamingAssets/Localization).\n\n" +
+                "Dans un build, les textes viennent du metadata.json uploadé dans le SaaS : faites " +
+                "Generate Metadata dans le WiseTwin Editor, puis uploadez le metadata.json.";
+            Debug.LogWarning($"[WiseTwin] ⚠️ {message}");
+
+            if (!Application.isBatchMode)
+            {
+                EditorUtility.DisplayDialog("WiseTwin - Traductions à régénérer", message, "Compris");
+            }
+        }
+
     }
 }
