@@ -2,6 +2,23 @@
 
 All notable changes to the WiseTwin Core Package will be documented in this file.
 
+## [1.12.0] - 2026-10-12
+
+### Added
+- **Multilingual trainings** (with `com.wisetwin.globalscripts` ≥ 1.4.0, which owns `LocalizationManager`):
+  - scenario texts can be localization keys prefixed by `@` (e.g. `"@training.bootstrap.scenario2.q1.question"`), resolved at runtime through `LocalizationHelper` by the displayers (text, question, procedure, dialogue, HUD);
+  - new scenario type **`languageselector`** (`LanguageSelectorDisplayer`) to let the learner pick a language, and `focusMode` on scenarios (`FocusModeController`);
+  - `InteractionBlocker` to block scene interactions while a panel is open.
+- **`localization` block in the generated metadata** (`MetadataLocalizationBuilder`) — for every language file in `Assets/StreamingAssets/Localization`, the translation of the `@` keys used by the scenarios: `{ defaultLanguage, languages, strings: { fr: { "training.x": "…" } } }`. The SaaS reads it so that statistics show the question, not the key. Missing translations are reported at generation.
+- **UI Toolkit fallback fonts** (`WiseTwinTextSettings`) — WebGL has no system fonts, so a character missing from the default font (Japanese, Chinese, Korean, Arabic…) rendered as an empty box. The package PanelSettings now reference a shared `Runtime/Resources/WiseTwinPanelTextSettings`; at startup every UI Toolkit Font Asset found in a project `Resources/WiseTwinFonts` folder is added to its fallbacks. Create one per writing system (not per language — Latin is already covered) with **WiseTwin → Langues → Créer une police de secours UI Toolkit** on a selected `.ttf`.
+
+### Fixed
+- `UI Toolkit/PanelSettings.asset` had been saved with the opaque clear color that `UIToolkitVRRenderer` sets at runtime (`m_ClearColor: 1`); restored to transparent.
+
+### Migration
+- Single-language trainings and already-deployed builds: no change (no `@` keys, no `localization` block).
+- Multilingual trainings: regenerate the metadata (to get the `localization` block) and rebuild. Add a fallback font for each non-Latin writing system you ship.
+
 ## [1.11.0] - 2026-09-30
 
 ### Added

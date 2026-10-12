@@ -47,6 +47,12 @@ public class FormationMetadataComplete
 
     [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
     public List<object> videoTriggers;
+
+    // Formation multilingue (1.12.0) : traduction, par langue, des clés "@…" utilisées par les
+    // scénarios — { defaultLanguage, languages, strings: { fr: { "training.x": "…" } } }.
+    // Lu par le SaaS (statistiques) ; Unity, lui, traduit avec les fichiers embarqués.
+    [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+    public Dictionary<string, object> localization;
 }
 
 [System.Serializable]

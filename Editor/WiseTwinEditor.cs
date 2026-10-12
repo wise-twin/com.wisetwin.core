@@ -1347,6 +1347,9 @@ public class WiseTwinEditor : EditorWindow
             metadata.videoTriggers = ConvertVideoTriggersToJSON();
         }
 
+        // 🌐 Traductions des clés "@…" pour le SaaS (null si formation mono-langue)
+        metadata.localization = WiseTwin.Editor.MetadataLocalizationBuilder.Build(metadata, metadata.language);
+
         return metadata;
     }
 
