@@ -18,6 +18,7 @@ namespace WiseTwin.Editor
         private static readonly Color ProcedureColor = new Color(0.3f, 0.75f, 0.45f);     // Green
         private static readonly Color TextColor = new Color(0.95f, 0.65f, 0.25f);         // Orange
         private static readonly Color DialogueColor = new Color(0.7f, 0.45f, 0.9f);       // Purple
+        private static readonly Color LanguageSelectorColor = new Color(0.4f, 0.8f, 0.8f); // Cyan
 
         // Foldout state tracking (persists during editor session)
         private static Dictionary<string, bool> _foldoutStates = new Dictionary<string, bool>();
@@ -60,6 +61,7 @@ namespace WiseTwin.Editor
                 case ScenarioType.Procedure: return ProcedureColor;
                 case ScenarioType.Text: return TextColor;
                 case ScenarioType.Dialogue: return DialogueColor;
+                case ScenarioType.LanguageSelector: return LanguageSelectorColor;
                 default: return Color.gray;
             }
         }
@@ -72,6 +74,7 @@ namespace WiseTwin.Editor
                 case ScenarioType.Procedure: return "#";
                 case ScenarioType.Text: return "T";
                 case ScenarioType.Dialogue: return "D";
+                case ScenarioType.LanguageSelector: return "L";
                 default: return " ";
             }
         }
@@ -96,6 +99,10 @@ namespace WiseTwin.Editor
                     string dTitle = scenario.dialogueData?.title ?? "";
                     if (dTitle.Length > 40) dTitle = dTitle.Substring(0, 37) + "...";
                     return dTitle != "" ? dTitle : "(empty)";
+                case ScenarioType.LanguageSelector:
+                    string lTitle = scenario.languageSelectorData?.title ?? "";
+                    if (lTitle.Length > 40) lTitle = lTitle.Substring(0, 37) + "...";
+                    return lTitle != "" ? lTitle : "Language Selection";
                 default:
                     return "";
             }
@@ -118,6 +125,7 @@ namespace WiseTwin.Editor
                 menu.AddItem(new GUIContent("Procedure"), false, () => AddScenario(data, ScenarioType.Procedure));
                 menu.AddItem(new GUIContent("Text"), false, () => AddScenario(data, ScenarioType.Text));
                 menu.AddItem(new GUIContent("Dialogue"), false, () => AddScenario(data, ScenarioType.Dialogue));
+                menu.AddItem(new GUIContent("Language Selector"), false, () => AddScenario(data, ScenarioType.LanguageSelector));
                 menu.ShowAsContext();
             }
 
@@ -333,6 +341,23 @@ namespace WiseTwin.Editor
                 EditorGUI.EndDisabledGroup();
             }
 
+            EditorGUILayout.Space(4);
+
+            // Focus Mode option
+            scenario.focusMode = EditorGUILayout.Toggle(
+                new GUIContent("Focus Mode",
+                    "When enabled, blurs the background and blocks all interactions outside the WiseTwin UI. " +
+                    "Forces the user to focus on this scenario before continuing."),
+                scenario.focusMode);
+
+            if (scenario.focusMode)
+            {
+                EditorGUILayout.HelpBox(
+                    "Focus Mode: The background will be darkened/blurred and the user won't be able to interact " +
+                    "with anything outside the UI panel until this scenario is completed.",
+                    MessageType.Info);
+            }
+
             EditorGUILayout.EndVertical();
             EditorGUILayout.Space(4);
 
@@ -350,6 +375,9 @@ namespace WiseTwin.Editor
                     break;
                 case ScenarioType.Dialogue:
                     DrawDialogueEditor(scenario.dialogueData, data);
+                    break;
+                case ScenarioType.LanguageSelector:
+                    DrawLanguageSelectorEditor(scenario.languageSelectorData);
                     break;
             }
         }
@@ -904,6 +932,64 @@ namespace WiseTwin.Editor
             }
         }
 
+        // ============= LANGUAGE SELECTOR EDITOR =============
+
+        private static void DrawLanguageSelectorEditor(LanguageSelectorScenarioData langSelector)
+        {
+            string accordionGroup = "langselector_accordion";
+
+            // === GENERAL SECTION ===
+            bool generalOpen = IsAccordionOpen(accordionGroup, "general");
+            DrawAccordionHeader("General Settings", generalOpen, () => ToggleAccordion(accordionGroup, "general"));
+
+            if (generalOpen)
+            {
+                Rect rect = EditorGUILayout.BeginVertical("box");
+                EditorGUI.DrawRect(rect, new Color(0.2f, 0.5f, 0.5f, 0.15f));
+
+                EditorGUILayout.LabelField("Language Selector", EditorStyles.boldLabel);
+                EditorGUILayout.HelpBox(
+                    "Displays a language selection screen. The user can choose their preferred language before continuing.",
+                    MessageType.Info);
+
+                EditorGUILayout.Space(4);
+
+                langSelector.title = EditorGUILayout.TextField("Title", langSelector.title);
+                langSelector.instruction = EditorGUILayout.TextField("Instruction", langSelector.instruction);
+
+                EditorGUILayout.Space(4);
+
+                langSelector.showFullLanguageName = EditorGUILayout.Toggle(
+                    new GUIContent("Show Full Names", "Show 'Français' instead of 'FR'"),
+                    langSelector.showFullLanguageName);
+
+                langSelector.autoAdvance = EditorGUILayout.Toggle(
+                    new GUIContent("Auto Advance", "Automatically advance to the next scenario after selection"),
+                    langSelector.autoAdvance);
+
+                EditorGUILayout.Space(4);
+
+                // Preview
+                EditorGUILayout.LabelField("Preview:", EditorStyles.miniBoldLabel);
+                EditorGUI.BeginDisabledGroup(true);
+                if (langSelector.showFullLanguageName)
+                {
+                    EditorGUILayout.LabelField("   • Français");
+                    EditorGUILayout.LabelField("   • English");
+                    EditorGUILayout.LabelField("   • 日本語");
+                }
+                else
+                {
+                    EditorGUILayout.LabelField("   • FR");
+                    EditorGUILayout.LabelField("   • EN");
+                    EditorGUILayout.LabelField("   • JA");
+                }
+                EditorGUI.EndDisabledGroup();
+
+                EditorGUILayout.EndVertical();
+            }
+        }
+
         // ============= DIALOGUE EDITOR =============
 
         private static void DrawDialogueEditor(DialogueScenarioData dialogue, WiseTwinEditorData data)
@@ -1106,6 +1192,9 @@ namespace WiseTwin.Editor
                             if (System.Enum.TryParse<ScenarioType>(typeStr, true, out var type))
                                 scenario.type = type;
                         }
+
+                        if (scenarioDict.ContainsKey("focusMode"))
+                            scenario.focusMode = System.Convert.ToBoolean(scenarioDict["focusMode"]);
 
                         switch (scenario.type)
                         {

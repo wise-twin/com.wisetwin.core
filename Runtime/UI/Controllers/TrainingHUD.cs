@@ -19,6 +19,12 @@ namespace WiseTwin
         [SerializeField] private bool showOnStart = false;
         [SerializeField] private float fadeInDuration = 0.5f;
 
+        [Tooltip("If true, show the HUD even when no scenarios are configured. Useful for tracking interactable objects only.")]
+        [SerializeField] private bool showWithoutScenarios = false;
+
+        [Tooltip("When showWithoutScenarios is true and no scenarios exist, use this as the total count. Set to 0 to auto-count InteractableObjects in the scene.")]
+        [SerializeField] private int manualTotalObjects = 0;
+
         [Header("Debug")]
         [SerializeField] private bool debugMode = false;
 
@@ -164,10 +170,65 @@ namespace WiseTwin
             {
                 Show();
             }
+            else if (showWithoutScenarios)
+            {
+                // Show HUD even without scenarios (for tracking interactables only)
+                if (debugMode) Debug.Log("[TrainingHUD] No scenarios but showWithoutScenarios=true — showing HUD");
+
+                // Initialize with manual count or auto-count interactables
+                InitializeWithoutScenarios();
+                Show();
+            }
             else if (debugMode)
             {
                 Debug.Log("[TrainingHUD] No scenarios in metadata — HUD stays hidden");
             }
+        }
+
+        /// <summary>
+        /// Initialize the HUD when no scenarios exist.
+        /// Uses manualTotalObjects if set, otherwise counts InteractableObjects in the scene.
+        /// </summary>
+        void InitializeWithoutScenarios()
+        {
+            int total = manualTotalObjects;
+
+            if (total <= 0)
+            {
+                // Auto-count InteractableObjects in the scene (via reflection to avoid assembly dependency)
+                total = CountInteractableObjects();
+
+                if (debugMode) Debug.Log($"[TrainingHUD] Auto-counted {total} InteractableObjects");
+            }
+
+            SetTotalObjects(total);
+            currentProgress = 0;
+            UpdateProgressDisplay();
+
+            if (debugMode) Debug.Log($"[TrainingHUD] Initialized without scenarios: 0/{total}");
+        }
+
+        /// <summary>
+        /// Count InteractableObjects in the scene without direct type dependency.
+        /// </summary>
+        int CountInteractableObjects()
+        {
+            // Find the InteractableObject type via reflection
+            var interactableType = System.Type.GetType("InteractableObject, WiseTwin.GlobalScripts");
+            if (interactableType == null)
+            {
+                // Try alternative assembly names
+                interactableType = System.Type.GetType("InteractableObject, Assembly-CSharp");
+            }
+
+            if (interactableType != null)
+            {
+                var objects = FindObjectsOfType(interactableType);
+                return objects != null ? objects.Length : 0;
+            }
+
+            if (debugMode) Debug.Log("[TrainingHUD] InteractableObject type not found - cannot auto-count");
+            return 0;
         }
 
         void SetupUIDocument()
@@ -420,6 +481,7 @@ namespace WiseTwin
 
         /// <summary>
         /// Met à jour le titre du scénario affiché dans le HUD.
+        /// Résout automatiquement les clés de localisation (@key).
         /// </summary>
         public void SetScenarioTitle(string title)
         {
@@ -431,7 +493,9 @@ namespace WiseTwin
             }
             else
             {
-                scenarioTitleLabel.text = title;
+                // Resolve localization keys (@key)
+                string resolvedTitle = LocalizationHelper.Resolve(title);
+                scenarioTitleLabel.text = resolvedTitle;
                 scenarioTitleLabel.style.display = DisplayStyle.Flex;
             }
         }

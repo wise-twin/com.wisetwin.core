@@ -35,6 +35,15 @@ namespace WiseTwin
         [JsonProperty("dialogue")]
         public JObject dialogue;
 
+        [JsonProperty("languageSelector")]
+        public JObject languageSelector;
+
+        /// <summary>
+        /// If true, the background will be blurred and interactions outside WiseTwin UI will be blocked
+        /// </summary>
+        [JsonProperty("focusMode")]
+        public bool focusMode = false;
+
         /// <summary>
         /// Get content data based on scenario type
         /// </summary>
@@ -60,6 +69,8 @@ namespace WiseTwin
                     return text;
                 case "dialogue":
                     return dialogue;
+                case "languageselector":
+                    return languageSelector;
                 default:
                     return null;
             }

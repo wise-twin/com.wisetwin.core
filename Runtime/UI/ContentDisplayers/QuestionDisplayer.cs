@@ -577,15 +577,11 @@ namespace WiseTwin.UI
                     {
                         if (isMultipleChoice)
                         {
-                            instructionLabel.text = lang == "fr"
-                                ? "Vous pouvez sélectionner plusieurs réponses"
-                                : "You can select multiple answers";
+                            instructionLabel.text = LocalizationHelper.Resolve("@question.instruction.multiple");
                         }
                         else
                         {
-                            instructionLabel.text = lang == "fr"
-                                ? "Sélectionnez une seule réponse"
-                                : "Select only one answer";
+                            instructionLabel.text = LocalizationHelper.Resolve("@question.instruction.single");
                         }
                     }
 
@@ -693,15 +689,11 @@ namespace WiseTwin.UI
             string lang = "";
             if (isMultipleChoice)
             {
-                instructionLabel.text = lang == "fr"
-                    ? "Vous pouvez sélectionner plusieurs réponses"
-                    : "You can select multiple answers";
+                instructionLabel.text = LocalizationHelper.Resolve("@question.instruction.multiple");
             }
             else
             {
-                instructionLabel.text = lang == "fr"
-                    ? "Sélectionnez une seule réponse"
-                    : "Select only one answer";
+                instructionLabel.text = LocalizationHelper.Resolve("@question.instruction.single");
             }
             questionBox.Add(instructionLabel);
 
@@ -1245,14 +1237,22 @@ namespace WiseTwin.UI
         void OnDestroy() { }
 
         // Flat string extraction (mono-language, with legacy {en, fr} backward compat)
+        // Also resolves @ localization keys via LocalizationHelper
         string ExtractLocalizedText(Dictionary<string, object> data, string key, string language)
         {
-            return LocalizedValueReader.ReadString(data, key);
+            string value = LocalizedValueReader.ReadString(data, key);
+            return LocalizationHelper.Resolve(value);
         }
 
         List<string> ExtractLocalizedList(Dictionary<string, object> data, string key, string language)
         {
-            return LocalizedValueReader.ReadStringList(data, key);
+            var list = LocalizedValueReader.ReadStringList(data, key);
+            // Resolve each item in the list
+            for (int i = 0; i < list.Count; i++)
+            {
+                list[i] = LocalizationHelper.Resolve(list[i]);
+            }
+            return list;
         }
 
         int ExtractInt(Dictionary<string, object> data, string key)

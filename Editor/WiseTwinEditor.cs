@@ -607,6 +607,9 @@ public class WiseTwinEditor : EditorWindow
                 if (scenarioDict.ContainsKey("scene"))
                     scenario.scene = scenarioDict["scene"]?.ToString() ?? "";
 
+                if (scenarioDict.ContainsKey("focusMode"))
+                    scenario.focusMode = Convert.ToBoolean(scenarioDict["focusMode"]);
+
                 // Load content based on type
                 switch (scenario.type)
                 {
@@ -648,6 +651,11 @@ public class WiseTwinEditor : EditorWindow
                     case WiseTwin.Editor.ScenarioType.Dialogue:
                         if (scenarioDict.ContainsKey("dialogue"))
                             LoadDialogueDataFromJSON(scenario.dialogueData, scenarioDict["dialogue"]);
+                        break;
+
+                    case WiseTwin.Editor.ScenarioType.LanguageSelector:
+                        if (scenarioDict.ContainsKey("languageSelector"))
+                            LoadLanguageSelectorDataFromJSON(scenario.languageSelectorData, scenarioDict["languageSelector"]);
                         break;
                 }
 
@@ -961,6 +969,24 @@ public class WiseTwinEditor : EditorWindow
                 graphDataJSON = dialogue.graphDataJSON
             });
         }
+    }
+
+    void LoadLanguageSelectorDataFromJSON(WiseTwin.Editor.LanguageSelectorScenarioData langSelector, object langSelectorObj)
+    {
+        var jObject = Newtonsoft.Json.Linq.JObject.FromObject(langSelectorObj);
+        var dict = jObject.ToObject<Dictionary<string, object>>();
+
+        if (dict.ContainsKey("title"))
+            langSelector.title = GetFlatString(dict["title"]);
+
+        if (dict.ContainsKey("instruction"))
+            langSelector.instruction = GetFlatString(dict["instruction"]);
+
+        if (dict.ContainsKey("showFullLanguageName"))
+            langSelector.showFullLanguageName = Convert.ToBoolean(dict["showFullLanguageName"]);
+
+        if (dict.ContainsKey("autoAdvance"))
+            langSelector.autoAdvance = Convert.ToBoolean(dict["autoAdvance"]);
     }
 
     /// <summary>
@@ -1381,6 +1407,12 @@ public class WiseTwinEditor : EditorWindow
                 scenarioDict["scene"] = scenario.scene;
             }
 
+            // Focus mode: blur background and block interactions outside WiseTwin UI
+            if (scenario.focusMode)
+            {
+                scenarioDict["focusMode"] = true;
+            }
+
             // Add content based on type
             switch (scenario.type)
             {
@@ -1411,6 +1443,10 @@ public class WiseTwinEditor : EditorWindow
 
                 case WiseTwin.Editor.ScenarioType.Dialogue:
                     scenarioDict["dialogue"] = ConvertDialogueDataToJSON(scenario.dialogueData);
+                    break;
+
+                case WiseTwin.Editor.ScenarioType.LanguageSelector:
+                    scenarioDict["languageSelector"] = ConvertLanguageSelectorDataToJSON(scenario.languageSelectorData);
                     break;
             }
 
@@ -1715,6 +1751,17 @@ public class WiseTwinEditor : EditorWindow
         }
 
         return result;
+    }
+
+    Dictionary<string, object> ConvertLanguageSelectorDataToJSON(WiseTwin.Editor.LanguageSelectorScenarioData langSelector)
+    {
+        return new Dictionary<string, object>
+        {
+            ["title"] = langSelector.title ?? "Sélection de la langue",
+            ["instruction"] = langSelector.instruction ?? "Veuillez sélectionner votre langue",
+            ["showFullLanguageName"] = langSelector.showFullLanguageName,
+            ["autoAdvance"] = langSelector.autoAdvance
+        };
     }
 
     string ColorToHex(Color color)

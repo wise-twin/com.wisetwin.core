@@ -22,6 +22,9 @@ namespace WiseTwin
         [Tooltip("Reset progression on Start")]
         [SerializeField] private bool resetOnStart = true;
 
+        [Tooltip("Show the Training HUD even when no scenarios are configured. The timer will run but no progression will be tracked.")]
+        [SerializeField] private bool showHUDWithoutScenarios = true;
+
         [Header("Debug")]
         [SerializeField] private bool debugMode = false;
 
@@ -249,6 +252,16 @@ namespace WiseTwin
             if (scenarios == null || scenarios.Count == 0)
             {
                 Debug.Log($"[ProgressionManager] No scenarios in metadata for '{currentScene}'");
+
+                // Show HUD anyway if configured (timer runs but no progression)
+                if (showHUDWithoutScenarios && TrainingHUD.Instance != null)
+                {
+                    Debug.Log("[ProgressionManager] Showing HUD without scenarios (showHUDWithoutScenarios=true)");
+                    TrainingHUD.Instance.SetTotalObjects(0);
+                    TrainingHUD.Instance.Show();
+                    PlayerControls.SetEnabled(true);
+                }
+
                 isInitializing = false;
                 return;
             }

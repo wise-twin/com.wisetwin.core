@@ -232,8 +232,9 @@ namespace WiseTwin.UI
         {
             lastDialogueNode = node;
 
-            string speaker = node.speaker ?? "";
-            string text = node.text ?? "";
+            // Resolve localization keys if text starts with @
+            string speaker = LocalizationHelper.Resolve(node.speaker ?? "");
+            string text = LocalizationHelper.Resolve(node.text ?? "");
             currentSpeakerName = speaker;
 
             // Clear previous content
@@ -451,7 +452,7 @@ namespace WiseTwin.UI
 
         private VisualElement CreateChoiceOption(DialogueChoiceRuntime choice, DialogueNodeRuntime parentNode, bool isEvaluated)
         {
-            string choiceText = choice.text ?? "";
+            string choiceText = LocalizationHelper.Resolve(choice.text ?? "");
 
             var container = UIStyles.CreateSelectableOption(UIStyles.RadiusMD);
 

@@ -420,9 +420,11 @@ namespace WiseTwin.UI
             }
         }
 
+        // Also resolves @ localization keys via LocalizationHelper
         string ExtractLocalizedText(Dictionary<string, object> data, string key, string language)
         {
-            return LocalizedValueReader.ReadString(data, key);
+            string value = LocalizedValueReader.ReadString(data, key);
+            return LocalizationHelper.Resolve(value);
         }
 
         bool ExtractBool(Dictionary<string, object> data, string key, bool defaultValue = false)

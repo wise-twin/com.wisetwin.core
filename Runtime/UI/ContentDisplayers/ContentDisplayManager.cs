@@ -29,6 +29,10 @@ namespace WiseTwin.UI
         private ContentType currentContentType;
         private IContentDisplayer currentDisplayer;
         private bool isDisplaying = false;
+        private bool currentScenarioFocusMode = false;
+
+        // Focus mode
+        private FocusModeController focusModeController;
 
         // Singleton
         public static ContentDisplayManager Instance { get; private set; }
@@ -55,6 +59,8 @@ namespace WiseTwin.UI
                 // Pas de warning si on est enfant de WiseTwinSystem
                 InitializeDisplayers();
                 SetupUIDocument();
+                // Setup FocusModeController after UIDocument so it can copy PanelSettings
+                SetupFocusModeController();
 
                 // Subscribe to scene changes for DontDestroyOnLoad support
                 UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
@@ -143,7 +149,31 @@ namespace WiseTwin.UI
             dialogueDisplayer.transform.SetParent(transform);
             contentDisplayers[ContentType.Dialogue] = dialogueDisplayer;
 
+            var languageSelectorDisplayer = new GameObject("LanguageSelectorDisplayer").AddComponent<LanguageSelectorDisplayer>();
+            languageSelectorDisplayer.transform.SetParent(transform);
+            contentDisplayers[ContentType.LanguageSelector] = languageSelectorDisplayer;
+
             if (debugMode) Debug.Log($"[ContentDisplayManager] Initialized {contentDisplayers.Count} displayers");
+        }
+
+        void SetupFocusModeController()
+        {
+            // Create FocusModeController as a child
+            var focusGO = new GameObject("FocusModeController");
+            focusGO.transform.SetParent(transform);
+            focusModeController = focusGO.AddComponent<FocusModeController>();
+
+            // Copy PanelSettings
+            if (uiDocument != null && uiDocument.panelSettings != null)
+            {
+                var focusDoc = focusGO.GetComponent<UIDocument>();
+                if (focusDoc != null)
+                {
+                    focusDoc.panelSettings = uiDocument.panelSettings;
+                }
+            }
+
+            if (debugMode) Debug.Log("[ContentDisplayManager] FocusModeController created");
         }
 
         void SetupUIDocument()
@@ -226,6 +256,9 @@ namespace WiseTwin.UI
                 case "dialogue":
                     contentType = ContentType.Dialogue;
                     break;
+                case "languageselector":
+                    contentType = ContentType.LanguageSelector;
+                    break;
                 default:
                     Debug.LogError($"[ContentDisplayManager] Unknown scenario type: {scenario.type}");
                     return;
@@ -241,6 +274,14 @@ namespace WiseTwin.UI
 
             // Convert JObject to Dictionary<string, object>
             Dictionary<string, object> contentDict = contentData.ToObject<Dictionary<string, object>>();
+
+            // Handle focus mode
+            currentScenarioFocusMode = scenario.focusMode;
+            if (currentScenarioFocusMode && focusModeController != null)
+            {
+                focusModeController.Activate();
+                if (debugMode) Debug.Log($"[ContentDisplayManager] Focus mode activated for scenario {scenario.id}");
+            }
 
             // Display the content
             DisplayContent(scenario.id, contentType, contentDict);
@@ -370,6 +411,14 @@ namespace WiseTwin.UI
                 currentDisplayer.Close();
                 currentDisplayer = null;
             }
+
+            // Deactivate focus mode if it was active
+            if (currentScenarioFocusMode && focusModeController != null)
+            {
+                focusModeController.Deactivate();
+                if (debugMode) Debug.Log("[ContentDisplayManager] Focus mode deactivated");
+            }
+            currentScenarioFocusMode = false;
 
             root.Clear();
             root.pickingMode = PickingMode.Ignore;

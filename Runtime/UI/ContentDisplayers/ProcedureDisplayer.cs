@@ -1615,9 +1615,11 @@ namespace WiseTwin.UI
         }
 
         // Flat string extraction (mono-language, with legacy {en, fr} backward compat)
+        // Also resolves @ localization keys via LocalizationHelper
         string ExtractLocalizedText(Dictionary<string, object> data, string key, string language)
         {
-            return LocalizedValueReader.ReadString(data, key);
+            string value = LocalizedValueReader.ReadString(data, key);
+            return LocalizationHelper.Resolve(value);
         }
 
         string ExtractString(Dictionary<string, object> data, string key)

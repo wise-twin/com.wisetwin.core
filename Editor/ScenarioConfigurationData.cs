@@ -15,7 +15,8 @@ namespace WiseTwin.Editor
         Question,
         Procedure,
         Text,
-        Dialogue
+        Dialogue,
+        LanguageSelector
     }
 
     [Serializable]
@@ -36,10 +37,17 @@ namespace WiseTwin.Editor
         // Formation multi-scènes : scène qui joue ce scénario (vide pour une formation à une scène)
         public string scene = "";
 
+        /// <summary>
+        /// If true, the background will be blurred and interactions outside WiseTwin UI will be blocked.
+        /// Forces the user to focus on the current scenario before continuing.
+        /// </summary>
+        public bool focusMode = false;
+
         public List<QuestionScenarioData> questions = new List<QuestionScenarioData>();
         public ProcedureScenarioData procedureData = new ProcedureScenarioData();
         public TextScenarioData textData = new TextScenarioData();
         public DialogueScenarioData dialogueData = new DialogueScenarioData();
+        public LanguageSelectorScenarioData languageSelectorData = new LanguageSelectorScenarioData();
 
         public ScenarioConfiguration()
         {
@@ -47,6 +55,7 @@ namespace WiseTwin.Editor
             procedureData = new ProcedureScenarioData();
             textData = new TextScenarioData();
             dialogueData = new DialogueScenarioData();
+            languageSelectorData = new LanguageSelectorScenarioData();
         }
     }
 
@@ -132,6 +141,15 @@ namespace WiseTwin.Editor
         public string title = "";
         // Serialized graph data JSON from the visual editor
         public string graphDataJSON = "";
+    }
+
+    [Serializable]
+    public class LanguageSelectorScenarioData
+    {
+        public string title = "Sélection de la langue";
+        public string instruction = "Veuillez sélectionner votre langue";
+        public bool showFullLanguageName = true;
+        public bool autoAdvance = true; // Advance to next scenario after selection
     }
 
     /// <summary>
