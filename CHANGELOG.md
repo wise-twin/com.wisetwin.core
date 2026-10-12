@@ -2,6 +2,20 @@
 
 All notable changes to the WiseTwin Core Package will be documented in this file.
 
+## [1.13.0] - 2026-10-12
+
+### Changed
+- **Translations of a build come from the metadata — fix a translation without rebuilding.** With `com.wisetwin.globalscripts` ≥ 1.5.0, a build reads its translations only from the `localization` block of the `metadata.json` provided by the host (SaaS, SCORM). The language files `Assets/StreamingAssets/Localization/*.json` are the working files, read only in the Editor (Play). To fix a translation: edit the `.json` → **Generate Metadata** → upload the `metadata.json`.
+- **Generate Metadata copies every translation** into the `localization` block (all keys of every language file, including `{lang}_xxx.json` additional files), not only the scenario keys.
+
+### Added
+- `MetadataLoader.GetLocalizationStrings(language)` — flat key → text table of a language from the metadata, null if absent.
+- `MetadataLoader.MetadataLoadedStatic` — static event raised when metadata are loaded, for systems that start before the scene's loader (not raised again on a multi-scene scene change).
+- **Build warning** when the metadata translations are out of date with the language files (Generate Metadata forgotten).
+
+### Migration
+- Multilingual trainings: run Generate Metadata, upload the `metadata.json` and rebuild once against core 1.13.0 + globalscripts 1.5.0. Afterwards, translation changes only need a new `metadata.json`.
+
 ## [1.12.0] - 2026-10-12
 
 ### Added

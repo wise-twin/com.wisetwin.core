@@ -7,47 +7,41 @@ using UnityEngine;
 namespace WiseTwin.Editor
 {
     /// <summary>
-    /// Bloc <c>localization</c> du metadata.json (1.12.0).
+    /// Bloc <c>localization</c> du metadata.json (1.12.0) — LA source des traductions d'un build.
     ///
-    /// Un texte de scénario qui commence par "@" est une clé, traduite dans Unity par les fichiers
-    /// <c>Assets/StreamingAssets/Localization/{langue}.json</c> (embarqués dans le build). Le SaaS
-    /// ne voit pas ces fichiers : sans ce bloc, ses statistiques afficheraient la clé au lieu de
-    /// la question. On y recopie, pour chaque langue, la traduction des seules clés utilisées
-    /// par le metadata.
+    /// Les fichiers de travail <c>Assets/StreamingAssets/Localization/{langue}.json</c> ne sont lus
+    /// que dans l'éditeur (Play). Generate Metadata recopie TOUTES leurs traductions ici ; un build
+    /// les lit dans le metadata fourni par l'hôte (SaaS, SCORM). Corriger une traduction = modifier
+    /// le .json → Generate Metadata → ré-uploader le metadata.json, sans rebuild.
+    /// Le SaaS s'en sert aussi pour traduire les clés "@…" dans ses statistiques.
     /// </summary>
     public static class MetadataLocalizationBuilder
     {
         public const string LocalizationFolder = "Assets/StreamingAssets/Localization";
 
-        /// <returns>null si le metadata n'utilise aucune clé (formation mono-langue classique).</returns>
+        /// <returns>null s'il n'y a aucun fichier de langue (formation mono-langue classique).</returns>
         public static Dictionary<string, object> Build(object metadata, string defaultLanguage)
         {
-            var keys = new SortedSet<string>();
-            CollectKeys(JToken.FromObject(metadata), keys);
-            if (keys.Count == 0) return null;
+            var usedKeys = new SortedSet<string>();
+            CollectKeys(JToken.FromObject(metadata), usedKeys);
 
             var tables = LoadTables();
             if (tables.Count == 0)
             {
-                Debug.LogWarning($"[WiseTwin] Le metadata utilise {keys.Count} clé(s) \"@…\" mais aucun fichier de langue n'a été trouvé dans {LocalizationFolder}.");
+                if (usedKeys.Count > 0)
+                    Debug.LogWarning($"[WiseTwin] Le metadata utilise {usedKeys.Count} clé(s) \"@…\" mais aucun fichier de langue n'a été trouvé dans {LocalizationFolder}.");
                 return null;
             }
 
             var strings = new Dictionary<string, object>();
             foreach (var table in tables)
             {
-                var used = new SortedDictionary<string, string>();
-                var missing = new List<string>();
-                foreach (var key in keys)
-                {
-                    if (table.Value.TryGetValue(key, out var value)) used[key] = value;
-                    else missing.Add(key);
-                }
-                strings[table.Key] = used;
+                strings[table.Key] = new SortedDictionary<string, string>(table.Value);
 
+                var missing = usedKeys.Where(k => !table.Value.ContainsKey(k)).ToList();
                 if (missing.Count > 0)
                 {
-                    Debug.LogWarning($"[WiseTwin] {missing.Count} clé(s) sans traduction en '{table.Key}' : {string.Join(", ", missing.Take(10))}{(missing.Count > 10 ? "…" : "")}");
+                    Debug.LogWarning($"[WiseTwin] {missing.Count} clé(s) des scénarios sans traduction en '{table.Key}' : {string.Join(", ", missing.Take(10))}{(missing.Count > 10 ? "…" : "")}");
                 }
             }
 
@@ -57,6 +51,21 @@ namespace WiseTwin.Editor
                 ["languages"] = tables.Keys.ToList(),
                 ["strings"] = strings,
             };
+        }
+
+        /// <summary>
+        /// Vrai si le bloc <c>localization</c> du fichier de metadata reflète les fichiers de langue
+        /// actuels (sinon : oubli de Generate Metadata après une modification de traduction).
+        /// </summary>
+        public static bool IsUpToDate(string metadataPath)
+        {
+            if (!File.Exists(metadataPath)) return true;
+            var root = JObject.Parse(File.ReadAllText(metadataPath));
+            var current = root["localization"];
+            root.Remove("localization");
+            var expected = Build(root, (string)root["language"]);
+            if (expected == null) return current == null;
+            return current != null && JToken.DeepEquals(current, JToken.FromObject(expected));
         }
 
         static void CollectKeys(JToken token, ISet<string> keys)

@@ -46,6 +46,14 @@ public class MetadataLoader : MonoBehaviour
     public System.Action<Dictionary<string, object>> OnMetadataLoaded;
     public System.Action<string> OnLoadError;
 
+    /// <summary>
+    /// Metadata chargées (lues et parsées), quelle que soit l'instance. Pour les systèmes qui
+    /// démarrent avant le MetadataLoader de la scène (ex. LocalizationManager, BeforeSceneLoad) :
+    /// s'abonner ici puis vérifier <c>Instance?.IsLoaded</c> pour le cas où c'est déjà fait.
+    /// N'est PAS redéclenché au changement de scène d'une formation multi-scènes.
+    /// </summary>
+    public static event System.Action<MetadataLoader> MetadataLoadedStatic;
+
     // Données chargées
     private Dictionary<string, object> loadedMetadata;
     private Dictionary<string, object> unityData; // Legacy format support
@@ -100,6 +108,21 @@ public class MetadataLoader : MonoBehaviour
     public string SceneName => sceneName;
     public Dictionary<string, object> GetMetadata() => loadedMetadata;
     public Dictionary<string, object> GetUnityData() => unityData; // Legacy
+
+    /// <summary>
+    /// Traductions d'une langue depuis le bloc <c>localization</c> des metadata (1.12.0) :
+    /// clé à plat ("training.x.title") → texte. Null si les metadata n'en contiennent pas.
+    /// C'est la source des traductions dans un build : les corriger = ré-uploader le
+    /// metadata.json, sans rebuild.
+    /// </summary>
+    public Dictionary<string, string> GetLocalizationStrings(string language)
+    {
+        if (loadedMetadata == null || string.IsNullOrEmpty(language)) return null;
+        if (!loadedMetadata.TryGetValue("localization", out var raw) || raw == null) return null;
+
+        var table = Newtonsoft.Json.Linq.JToken.FromObject(raw)["strings"]?[language] as Newtonsoft.Json.Linq.JObject;
+        return table?.ToObject<Dictionary<string, string>>();
+    }
     public List<ScenarioData> GetScenarios() => scenarios;
     public TrainingSettings GetSettings() => settings;
     public int GetScenarioCount() => scenarios?.Count ?? 0;
@@ -733,6 +756,8 @@ public class MetadataLoader : MonoBehaviour
             // Notifier le succès
             int subscriberCount = OnMetadataLoaded?.GetInvocationList()?.Length ?? 0;
             Debug.Log($"[MetadataLoader] Firing OnMetadataLoaded event to {subscriberCount} subscribers");
+            // Statique d'abord : les traductions doivent être prêtes quand les scénarios s'affichent
+            MetadataLoadedStatic?.Invoke(this);
             OnMetadataLoaded?.Invoke(loadedMetadata);
         }
         catch (System.Exception e)
