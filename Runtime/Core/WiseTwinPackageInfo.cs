@@ -6,6 +6,6 @@ namespace WiseTwin
     /// </summary>
     public static class WiseTwinPackageInfo
     {
-        public const string Version = "1.11.0";
+        public const string Version = "1.12.0";
     }
 }
